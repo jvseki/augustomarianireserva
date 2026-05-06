@@ -9,8 +9,12 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# 🔥 pega credenciais do Render
-info = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+# 🔥 funciona local e render
+if os.getenv("GOOGLE_CREDENTIALS"):
+    info = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+else:
+    with open("credenciais.json") as f:
+        info = json.load(f)
 
 creds = ServiceAccountCredentials.from_json_keyfile_dict(info, scope)
 client = gspread.authorize(creds)

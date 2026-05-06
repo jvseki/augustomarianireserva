@@ -36,21 +36,24 @@ def reservar():
     return jsonify({"msg": "Reservado com sucesso"})
 
 
-# 🔐 edição protegida por senha
 @app.route("/editar", methods=["POST"])
 def editar():
     data = request.json
-    linha = data["linha"]
-    coluna = data["coluna"]
-    valor = data["valor"]
+
+    linha = data.get("linha")
+    coluna = data.get("coluna")
+    valor = data.get("valor")
     senha = data.get("senha")
 
+    # 🔐 valida senha
     if senha != ADMIN_PASSWORD:
         return jsonify({"erro": "Senha incorreta"}), 403
 
-    update_cell(linha, coluna, valor)
-
-    return jsonify({"msg": "Atualizado com sucesso"})
+    try:
+        update_cell(linha, coluna, valor)
+        return jsonify({"msg": "Atualizado com sucesso"})
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
 
 
 if __name__ == "__main__":

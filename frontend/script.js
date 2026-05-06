@@ -1,4 +1,4 @@
-const API = "https://augustomarianireserva.onrender.com";
+const API = "https://SEU-BACKEND.onrender.com";
 
 async function carregarAgenda() {
   const res = await fetch(`${API}/agenda`);
@@ -32,7 +32,7 @@ async function carregarAgenda() {
 
 async function menuEdicao(linha, coluna, valorAtual) {
   const senha = prompt("Digite a senha:");
-  if (senha !== "1234") return;
+  if (!senha) return;
 
   const opcao = prompt(
     "1 - Reservar\n2 - Bloquear\n3 - Liberar\n4 - Limpar"
@@ -50,13 +50,22 @@ async function menuEdicao(linha, coluna, valorAtual) {
   if (opcao === "3") novoValor = "LIVRE";
   if (opcao === "4") novoValor = "";
 
-  await fetch(`${API}/editar`, {
+  const res = await fetch(`${API}/editar`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ linha, coluna, valor: novoValor })
+    body: JSON.stringify({ linha, coluna, valor: novoValor, senha })
   });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(data.erro || "Erro ao atualizar");
+    return;
+  }
+
+  alert("Atualizado com sucesso");
 
   carregarAgenda();
 }
