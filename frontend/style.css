@@ -1,0 +1,85 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: white;
+  text-align: center;
+}
+
+.container {
+  margin-top: 30px;
+}
+
+h1 {
+  margin-bottom: 20px;
+}
+
+table {
+  margin: auto;
+  border-collapse: collapse;
+  width: 80%;
+}
+
+td, th {
+  padding: 15px;
+  border: 1px solid #334155;
+  transition: 0.2s;
+}
+
+td:hover {
+  transform: scale(1.05);
+  cursor: pointer;
+}
+
+/* estados */
+
+.livre {
+  background: #1e293b;
+}
+
+.livre:hover {
+  background: #22c55e;
+}
+
+.bloqueado {
+  background: #dc2626;
+  color: white;
+  cursor: not-allowed;
+}
+
+.reservado {
+  background: #2563eb;
+}
+body {
+  font-family: Arial;
+  background: #0f172a;
+  color: white;
+  text-align: center;
+}
+
+table {
+  margin: auto;
+  border-collapse: collapse;
+  width: 80%;
+}
+
+td, th {
+  padding: 15px;
+  border: 1px solid #334155;
+}
+
+td:hover {
+  transform: scale(1.05);
+  cursor: pointer;
+}
+
+.livre { background: #1e293b; }
+.livre:hover { background: #22c55e; }
+
+.bloqueado {
+  background: #dc2626;
+  cursor: not-allowed;
+}
+
+.reservado {
+  background: #2563eb;
+}
