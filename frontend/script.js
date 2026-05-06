@@ -1,4 +1,4 @@
-const API = "";
+const API = "https://augustomarianireserva.onrender.com";
 
 async function carregarAgenda() {
   const res = await fetch(`${API}/agenda`);
