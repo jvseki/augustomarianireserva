@@ -8,31 +8,54 @@ scope = [
     "https://www.googleapis.com/auth/drive"
 ]
 
-# 🔥 Credenciais vindas do Render (variável de ambiente)
-creds_json = os.environ.get("GOOGLE_CREDENTIALS")
+# =========================
+# 🔥 FUNÇÃO DE AUTENTICAÇÃO
+# =========================
 
-if not creds_json:
-    raise Exception("GOOGLE_CREDENTIALS não configurado no Render")
+def get_credentials():
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS")
 
-creds_dict = json.loads(creds_json)
+    # =========================
+    # 🌐 PRODUÇÃO (RENDER)
+    # =========================
+    if creds_json:
+        creds_dict = json.loads(creds_json)
 
-creds = ServiceAccountCredentials.from_json_keyfile_dict(
-    creds_dict,
-    scope
-)
+        creds = ServiceAccountCredentials.from_json_keyfile_dict(
+            creds_dict,
+            scope
+        )
+        return creds
 
+    # =========================
+    # 💻 LOCAL (SEU PC)
+    # =========================
+    print("⚠️ Usando credenciais locais (credenciais.json)")
+    base_dir = os.path.dirname(__file__)
+    cred_path = os.path.join(base_dir, "credenciais.json")
+
+    creds = ServiceAccountCredentials.from_json_keyfile_name(
+        cred_path,
+        scope
+    )
+    return creds
+
+
+# =========================
+# 🔗 CLIENTE GOOGLE SHEETS
+# =========================
+
+creds = get_credentials()
 client = gspread.authorize(creds)
 
-# =========================================
-# 📌 SUA PLANILHA (USE O ID, NÃO O NOME)
-# =========================================
+# 📌 SUA PLANILHA (USE O ID)
 SHEET_ID = "1uixhu6rN03HrMy-1ECf2U-Gr5bpKkbbiToiHGMOglk0"
 
 sheet = client.open_by_key(SHEET_ID).sheet1
 
 
 # =========================
-# 📌 FUNÇÕES DO SISTEMA
+# 📌 FUNÇÕES
 # =========================
 
 def get_all_data():
