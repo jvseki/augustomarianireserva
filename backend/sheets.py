@@ -49,7 +49,7 @@ creds = get_credentials()
 client = gspread.authorize(creds)
 
 # 📌 SUA PLANILHA (USE O ID)
-SHEET_ID = "AGENDAMENTO NOTEBOOKS"
+SHEET_ID = "1uixhu6rN03HrMy-1ECf2U-Gr5bpKkbbiToiHGMOglk0"
 
 sheet = client.open_by_key(SHEET_ID).sheet1
 
