@@ -1,6 +1,9 @@
 const API = "https://augustomarianireserva.onrender.com";
 
-async function carregarAgenda() {
+let linhaSel = null;
+let colunaSel = null;
+
+async function carregar() {
   const res = await fetch(`${API}/agenda`);
   const data = await res.json();
 
@@ -19,7 +22,7 @@ async function carregarAgenda() {
         else if (celula === "BLOQUEADO") td.className = "bloqueado";
         else td.className = "reservado";
 
-        td.onclick = () => menuEdicao(i + 1, j + 1, celula);
+        td.onclick = () => reservar(i + 1, j + 1);
       }
 
       tr.appendChild(td);
@@ -29,45 +32,35 @@ async function carregarAgenda() {
   });
 }
 
+/* RESERVA SIMPLES (PROFESSOR) */
+async function reservar(linha, coluna) {
+  const nome = prompt("Digite seu nome:");
 
-async function menuEdicao(linha, coluna, valorAtual) {
-  const senha = prompt("Digite a senha:");
-  if (!senha) return;
-
-  const opcao = prompt(
-    "1 - Reservar\n2 - Bloquear\n3 - Liberar\n4 - Limpar"
-  );
-
-  let novoValor = valorAtual;
-
-  if (opcao === "1") {
-    const nome = prompt("Digite seu nome:");
-    if (!nome) return;
-    novoValor = nome;
-  }
-
-  if (opcao === "2") novoValor = "BLOQUEADO";
-  if (opcao === "3") novoValor = "LIVRE";
-  if (opcao === "4") novoValor = "";
+  if (!nome) return;
 
   const res = await fetch(`${API}/editar`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ linha, coluna, valor: novoValor, senha })
+    body: JSON.stringify({
+      linha,
+      coluna,
+      valor: nome
+    })
   });
 
   const data = await res.json();
 
   if (!res.ok) {
-    alert(data.erro || "Erro ao atualizar");
+    alert(data.erro || "Erro ao reservar");
     return;
   }
 
-  alert("Atualizado com sucesso");
-
-  carregarAgenda();
+  carregar();
 }
 
-carregarAgenda();
+/* atualização automática */
+setInterval(carregar, 5000);
+
+carregar();

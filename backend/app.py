@@ -1,53 +1,32 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from sheets import get_all_data, get_cell, update_cell
-from config import ADMIN_PASSWORD
-import os
+
+from sheets import get_all_data, update_cell, get_cell
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
 
-
+# 🔥 HOME
 @app.route("/")
 def home():
     return "API rodando 🚀"
 
 
+# 📊 PEGAR DADOS
 @app.route("/agenda", methods=["GET"])
 def agenda():
     data = get_all_data()
     return jsonify(data)
 
 
-@app.route("/reservar", methods=["POST"])
-def reservar():
-    data = request.json
-    linha = data["linha"]
-    coluna = data["coluna"]
-    nome = data["nome"]
-
-    valor_atual = get_cell(linha, coluna)
-
-    if valor_atual != "LIVRE":
-        return jsonify({"erro": "Horário indisponível"}), 400
-
-    update_cell(linha, coluna, nome)
-
-    return jsonify({"msg": "Reservado com sucesso"})
-
-
+# ✏️ EDITAR CÉLULA
 @app.route("/editar", methods=["POST"])
 def editar():
     data = request.json
 
-    linha = data.get("linha")
-    coluna = data.get("coluna")
-    valor = data.get("valor")
-    senha = data.get("senha")
-
-    # 🔐 valida senha
-    if senha != ADMIN_PASSWORD:
-        return jsonify({"erro": "Senha incorreta"}), 403
+    linha = data["linha"]
+    coluna = data["coluna"]
+    valor = data["valor"]
 
     try:
         update_cell(linha, coluna, valor)
@@ -56,6 +35,24 @@ def editar():
         return jsonify({"erro": str(e)}), 500
 
 
+# 🧪 RESERVA SIMPLES (OPCIONAL)
+@app.route("/reservar", methods=["POST"])
+def reservar():
+    data = request.json
+
+    linha = data["linha"]
+    coluna = data["coluna"]
+    nome = data["nome"]
+
+    atual = get_cell(linha, coluna)
+
+    if atual != "LIVRE":
+        return jsonify({"erro": "Indisponível"}), 400
+
+    update_cell(linha, coluna, nome)
+
+    return jsonify({"msg": "Reservado"})
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
