@@ -37,6 +37,14 @@ function paraMinutos(hhmm) {
   return h * 60 + m;
 }
 
+// Retorna true se o horário da linha ainda está ativo (não passou)
+function horarioEstaAtivo(linhaNumero) {
+  const h = HORARIOS[linhaNumero];
+  if (!h) return true; // linha sem horário mapeado = não interfere
+  const agora = horaAtualEmMinutos();
+  return agora < paraMinutos(h[1]); // ativo se ainda não terminou
+}
+
 // Extrai tipo e quantidade de um valor reservado ex: "João | 10 notebook prata"
 function extrairReserva(valor) {
   if (!valor) return null;
@@ -72,10 +80,16 @@ function calcularUsoNaLinha(linhaData) {
   return uso;
 }
 
-// Calcula uso total de cada equipamento em TODAS as linhas (visão geral)
+// =====================================================================
+// CORREÇÃO: Calcula uso global SOMENTE dos horários que ainda estão
+// ativos (não passados). Horários passados já foram resetados para LIVRE
+// e não devem contar no estoque disponível.
+// =====================================================================
 function calcularUsoGlobal(dados) {
   const uso = { tablet: 0, prata: 0, preto: 0 };
   for (let i = 1; i < dados.length; i++) {
+    const linhaNumero = i + 1; // linha 1 = cabeçalho, linha 2 = dados[1], etc.
+    if (!horarioEstaAtivo(linhaNumero)) continue; // pula horários passados
     const linha = dados[i];
     for (let col = 1; col < linha.length; col++) {
       const r = extrairReserva(linha[col]);
@@ -99,7 +113,6 @@ async function resetarHorariosPassados(dados) {
           await fetch(`${API}/editar`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            // col+1 porque Google Sheets começa em 1, e col 0 é o rótulo
             body: JSON.stringify({ linha, coluna: col + 1, valor: "LIVRE" })
           });
         } catch (e) { console.warn("Erro reset", linha, col + 1); }
@@ -169,24 +182,44 @@ function renderTabela(data) {
       const td = document.createElement(isHeader ? "th" : "td");
 
       if (!isHeader && !isLabelCol) {
-        const val = (celula || "").trim().toUpperCase();
+        // =====================================================================
+        // CORREÇÃO: normaliza o valor antes de comparar.
+        // Valores com espaços extras, caracteres invisíveis ou capitalização
+        // diferente (ex: "livre", " LIVRE ") agora são tratados corretamente,
+        // evitando que células das linhas 2 e 3 fiquem sem onclick.
+        // =====================================================================
+        const val = (celula || "").trim().toUpperCase().replace(/\s+/g, " ");
+
         if (val === "LIVRE" || val === "") {
           td.className = "livre";
           td.innerText = "LIVRE";
           livre++;
           const horario = linha[0] || `Linha ${i + 1}`;
           const dia = cabecalhos[j] || `Col. ${j + 1}`;
-          // i+1 = linha real (1-based), j+1 = coluna real (1-based no Sheets)
           td.onclick = () => abrirModal(i + 1, j + 1, celula, horario, dia, data[i]);
         } else if (val === "BLOQUEADO") {
           td.className = "bloqueado";
-          td.innerText = celula;
+          td.innerText = "BLOQUEADO";
           td.style.cursor = "not-allowed";
-        } else {
+        } else if (val.includes("|")) {
+          // Reserva válida com separador
           td.className = "reservado";
           td.style.cursor = "default";
           td.innerHTML = formatarCelulaReservada(celula);
           reservado++;
+        } else {
+          // =====================================================================
+          // CORREÇÃO: valor desconhecido (ex: texto sem "|", espaço, caractere
+          // estranho). Antes caía no bloco "reservado" sem onclick, tornando a
+          // célula inerte. Agora trata como LIVRE para permitir nova reserva.
+          // =====================================================================
+          td.className = "livre";
+          td.innerText = "LIVRE";
+          livre++;
+          const horario = linha[0] || `Linha ${i + 1}`;
+          const dia = cabecalhos[j] || `Col. ${j + 1}`;
+          td.onclick = () => abrirModal(i + 1, j + 1, "", horario, dia, data[i]);
+          console.warn(`Valor inesperado na célula [${i+1}, ${j+1}]: "${celula}" → tratado como LIVRE`);
         }
       } else {
         td.innerText = celula;
