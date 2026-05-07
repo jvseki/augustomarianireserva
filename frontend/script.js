@@ -1,11 +1,14 @@
 const API = "https://backend-reserva-n8ru.onrender.com";
-let linhaAtual, colunaAtual, acaoAtual;
+let linhaAtual, colunaAtual;
 
 const ESTOQUE = {
   tablet: { label: "tablet",           total: 12,  emoji: "📱" },
   prata:  { label: "notebook prata",   total: 23,  emoji: "💻" },
   preto:  { label: "notebook preto",   total: 11,  emoji: "🖥️" },
 };
+
+// Guarda quantos de cada tipo estão em uso NO HORÁRIO atual selecionado
+let usoNoHorario = { tablet: 0, prata: 0, preto: 0 };
 
 const HORARIOS = {
   2:  ["07:00", "07:50"],
@@ -34,6 +37,54 @@ function paraMinutos(hhmm) {
   return h * 60 + m;
 }
 
+// Extrai tipo e quantidade de um valor reservado ex: "João | 10 notebook prata"
+function extrairReserva(valor) {
+  if (!valor) return null;
+  const v = valor.trim().toUpperCase();
+  if (v === "" || v === "LIVRE" || v === "BLOQUEADO") return null;
+  const partes = valor.split("|");
+  if (partes.length < 2) return null;
+  const equipPart = partes[1].trim().toLowerCase();
+  let tipo = null;
+  let qtd = 1;
+  const match = equipPart.match(/(\d+)\s*(tablet|notebook prata|notebook preto)/i);
+  if (match) {
+    qtd = parseInt(match[1]);
+    const nome = match[2].toLowerCase();
+    if (nome === "tablet") tipo = "tablet";
+    else if (nome === "notebook prata") tipo = "prata";
+    else if (nome === "notebook preto") tipo = "preto";
+  } else {
+    if (equipPart.includes("tablet")) tipo = "tablet";
+    else if (equipPart.includes("prata")) tipo = "prata";
+    else if (equipPart.includes("preto")) tipo = "preto";
+  }
+  return tipo ? { tipo, qtd } : null;
+}
+
+// Calcula uso total de equipamentos em uma linha inteira (todas as colunas)
+function calcularUsoNaLinha(linhaData) {
+  const uso = { tablet: 0, prata: 0, preto: 0 };
+  for (let col = 1; col < linhaData.length; col++) {
+    const r = extrairReserva(linhaData[col]);
+    if (r && uso[r.tipo] !== undefined) uso[r.tipo] += r.qtd;
+  }
+  return uso;
+}
+
+// Calcula uso total de cada equipamento em TODAS as linhas (visão geral)
+function calcularUsoGlobal(dados) {
+  const uso = { tablet: 0, prata: 0, preto: 0 };
+  for (let i = 1; i < dados.length; i++) {
+    const linha = dados[i];
+    for (let col = 1; col < linha.length; col++) {
+      const r = extrairReserva(linha[col]);
+      if (r && uso[r.tipo] !== undefined) uso[r.tipo] += r.qtd;
+    }
+  }
+  return uso;
+}
+
 async function resetarHorariosPassados(dados) {
   const agora = horaAtualEmMinutos();
   for (const [linhaStr, [, fim]] of Object.entries(HORARIOS)) {
@@ -48,6 +99,7 @@ async function resetarHorariosPassados(dados) {
           await fetch(`${API}/editar`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            // col+1 porque Google Sheets começa em 1, e col 0 é o rótulo
             body: JSON.stringify({ linha, coluna: col + 1, valor: "LIVRE" })
           });
         } catch (e) { console.warn("Erro reset", linha, col + 1); }
@@ -64,11 +116,31 @@ async function carregarAgenda() {
     const d1 = await r1.json();
     await resetarHorariosPassados(d1);
     const r2 = await fetch(`${API}/agenda`);
-    renderTabela(await r2.json());
+    const dados = await r2.json();
+    renderTabela(dados);
+    atualizarStockHeader(calcularUsoGlobal(dados), dados);
   } catch (e) {
     document.getElementById("loading").innerHTML =
       `<p style="color:#c0302a;font-family:'Architects Daughter',cursive;font-size:16px">⚠️ Erro ao conectar com o servidor</p>`;
   }
+}
+
+// Atualiza os badges de estoque no header com disponibilidade real
+function atualizarStockHeader(usoGlobal, dados) {
+  const tipos = ["tablet", "prata", "preto"];
+  tipos.forEach(tipo => {
+    const disponiveis = ESTOQUE[tipo].total - usoGlobal[tipo];
+    const badge = document.getElementById(`stock-${tipo}`);
+    if (!badge) return;
+    const { emoji, label, total } = ESTOQUE[tipo];
+    if (disponiveis <= 0) {
+      badge.innerHTML = `${emoji} ${total} ${label === "tablet" ? "tablets" : label + "s"} <span class="stock-zero">0 disponíveis</span>`;
+      badge.classList.add("esgotado");
+    } else {
+      badge.innerHTML = `${emoji} ${disponiveis}/${total} ${label === "tablet" ? "tablets" : label + "s"} disponíveis`;
+      badge.classList.remove("esgotado");
+    }
+  });
 }
 
 function formatarCelulaReservada(valor) {
@@ -79,7 +151,11 @@ function formatarCelulaReservada(valor) {
   return `<span class="cell-nome">${nome}</span><span class="cell-equip">${equip}</span>`;
 }
 
+// Guarda os dados globais para uso no modal
+let dadosGlobais = [];
+
 function renderTabela(data) {
+  dadosGlobais = data;
   const tabela = document.getElementById("tabela");
   tabela.innerHTML = "";
   let livre = 0, reservado = 0;
@@ -96,11 +172,12 @@ function renderTabela(data) {
         const val = (celula || "").trim().toUpperCase();
         if (val === "LIVRE" || val === "") {
           td.className = "livre";
-          td.innerText = celula;
+          td.innerText = "LIVRE";
           livre++;
           const horario = linha[0] || `Linha ${i + 1}`;
           const dia = cabecalhos[j] || `Col. ${j + 1}`;
-          td.onclick = () => abrirModal(i + 1, j + 1, celula, horario, dia);
+          // i+1 = linha real (1-based), j+1 = coluna real (1-based no Sheets)
+          td.onclick = () => abrirModal(i + 1, j + 1, celula, horario, dia, data[i]);
         } else if (val === "BLOQUEADO") {
           td.className = "bloqueado";
           td.innerText = celula;
@@ -132,26 +209,49 @@ function renderTabela(data) {
 
 let tipoSelecionado = null;
 
-function abrirModal(linha, coluna, valor, horario, dia) {
+function abrirModal(linha, coluna, valor, horario, dia, linhaData) {
   linhaAtual = linha;
   colunaAtual = coluna;
-  acaoAtual = null;
   tipoSelecionado = null;
+
+  // Calcula uso já existente nesta linha (este horário)
+  usoNoHorario = calcularUsoNaLinha(linhaData);
 
   document.getElementById("modal-title").textContent = `${dia} — ${horario}`;
   document.getElementById("modal-sub").textContent = "Horário livre — faça sua reserva";
 
-  document.getElementById("reservar-form").style.display = "none";
-  document.getElementById("bloquear-confirm").style.display = "none";
-  document.getElementById("confirm-btn").style.display = "none";
   document.getElementById("nome-input").value = "";
   document.getElementById("qtd-input").value = "1";
   document.getElementById("error-msg").textContent = "";
   document.getElementById("equip-error").textContent = "";
-  document.querySelectorAll(".equip-btn").forEach(b => b.classList.remove("active"));
-  document.querySelectorAll(".action-btn2").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll(".equip-btn").forEach(b => b.classList.remove("active", "sem-estoque"));
+
+  // Atualiza disponibilidade nos botões de equipamento
+  atualizarBotoesEquip();
 
   document.getElementById("overlay").classList.add("open");
+  setTimeout(() => document.getElementById("nome-input").focus(), 100);
+}
+
+// Mostra disponibilidade em tempo real nos botões do modal
+function atualizarBotoesEquip() {
+  Object.keys(ESTOQUE).forEach(tipo => {
+    const disponiveis = ESTOQUE[tipo].total - usoNoHorario[tipo];
+    const btn = document.querySelector(`.equip-btn.${tipo}`);
+    if (!btn) return;
+    const maxSpan = btn.querySelector(".equip-max");
+    if (disponiveis <= 0) {
+      maxSpan.textContent = "esgotado neste horário";
+      maxSpan.style.color = "var(--red)";
+      btn.classList.add("sem-estoque");
+      btn.disabled = true;
+    } else {
+      maxSpan.textContent = `${disponiveis} disponíveis`;
+      maxSpan.style.color = "";
+      btn.classList.remove("sem-estoque");
+      btn.disabled = false;
+    }
+  });
 }
 
 function fecharModal() {
@@ -162,56 +262,40 @@ document.getElementById("overlay").addEventListener("click", function (e) {
   if (e.target === this) fecharModal();
 });
 
-function selecionarAcao(acao, btn) {
-  acaoAtual = acao;
-  document.querySelectorAll(".action-btn2").forEach(b => b.classList.remove("active"));
-  btn.classList.add("active");
-
-  document.getElementById("reservar-form").style.display = acao === "reservar" ? "block" : "none";
-  document.getElementById("bloquear-confirm").style.display = acao === "bloquear" ? "block" : "none";
-  document.getElementById("confirm-btn").style.display = "block";
-  document.getElementById("error-msg").textContent = "";
-
-  if (acao === "reservar") setTimeout(() => document.getElementById("nome-input").focus(), 100);
-}
-
 function selecionarEquip(tipo, btn) {
+  const disponiveis = ESTOQUE[tipo].total - usoNoHorario[tipo];
+  if (disponiveis <= 0) {
+    document.getElementById("equip-error").textContent = `⚠️ Todos os ${ESTOQUE[tipo].label}s já estão reservados neste horário.`;
+    return;
+  }
   tipoSelecionado = tipo;
   document.querySelectorAll(".equip-btn").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
   document.getElementById("equip-error").textContent = "";
-  const max = ESTOQUE[tipo].total;
-  document.getElementById("qtd-input").max = max;
-  document.getElementById("qtd-label").textContent = `Quantidade (máx. ${max})`;
+  document.getElementById("qtd-input").max = disponiveis;
+  document.getElementById("qtd-label").textContent = `Quantidade (máx. ${disponiveis} disponíveis)`;
   const cur = parseInt(document.getElementById("qtd-input").value) || 1;
-  if (cur > max) document.getElementById("qtd-input").value = max;
+  if (cur > disponiveis) document.getElementById("qtd-input").value = disponiveis;
 }
 
 async function confirmarAcao() {
-  if (!acaoAtual) return;
-
-  let novoValor = "";
-
-  if (acaoAtual === "reservar") {
-    const nome = document.getElementById("nome-input").value.trim();
-    if (!nome) {
-      document.getElementById("error-msg").textContent = "✏️ Digite o nome do professor.";
-      return;
-    }
-    if (!tipoSelecionado) {
-      document.getElementById("equip-error").textContent = "⚠️ Selecione o tipo de equipamento.";
-      return;
-    }
-    const qtd = parseInt(document.getElementById("qtd-input").value) || 1;
-    const max = ESTOQUE[tipoSelecionado].total;
-    if (qtd < 1 || qtd > max) {
-      document.getElementById("equip-error").textContent = `⚠️ Quantidade entre 1 e ${max}.`;
-      return;
-    }
-    novoValor = `${nome} | ${qtd} ${ESTOQUE[tipoSelecionado].label}`;
-  } else if (acaoAtual === "bloquear") {
-    novoValor = "BLOQUEADO";
+  const nome = document.getElementById("nome-input").value.trim();
+  if (!nome) {
+    document.getElementById("error-msg").textContent = "✏️ Digite o nome do professor.";
+    return;
   }
+  if (!tipoSelecionado) {
+    document.getElementById("equip-error").textContent = "⚠️ Selecione o tipo de equipamento.";
+    return;
+  }
+  const disponiveis = ESTOQUE[tipoSelecionado].total - usoNoHorario[tipoSelecionado];
+  const qtd = parseInt(document.getElementById("qtd-input").value) || 1;
+  if (qtd < 1 || qtd > disponiveis) {
+    document.getElementById("equip-error").textContent = `⚠️ Só há ${disponiveis} ${ESTOQUE[tipoSelecionado].label}(s) disponíveis neste horário.`;
+    return;
+  }
+
+  const novoValor = `${nome} | ${qtd} ${ESTOQUE[tipoSelecionado].label}`;
 
   const btn = document.getElementById("confirm-btn");
   btn.textContent = "Salvando...";

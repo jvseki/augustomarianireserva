@@ -728,3 +728,30 @@ tbody tr:hover td.label-col {
 .equip-name  { font-size: 11px; font-weight: 800; color: var(--ink); }
 .equip-max   { font-size: 10px; color: var(--ink-light); font-weight: 600; }
 
+
+/* ==============================
+   EQUIPAMENTO ESGOTADO
+   ============================== */
+.equip-btn.sem-estoque {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f5f0e8 !important;
+  transform: none !important;
+}
+
+.equip-btn.sem-estoque:hover {
+  transform: none !important;
+  background: #f5f0e8 !important;
+}
+
+.stock-badge.esgotado {
+  background: var(--red-bg) !important;
+  border-color: var(--red-border) !important;
+  color: var(--red) !important;
+}
+
+.stock-zero {
+  font-weight: 900;
+  color: var(--red);
+  margin-left: 4px;
+}

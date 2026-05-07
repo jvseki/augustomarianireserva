@@ -37,10 +37,10 @@
       </div>
 
       <div class="stock-row">
-        <span class="stock-title">Estoque total:</span>
-        <span class="stock-badge tablet">📱 12 tablets</span>
-        <span class="stock-badge prata">💻 23 notebooks prata</span>
-        <span class="stock-badge preto">🖥️ 11 notebooks preto</span>
+        <span class="stock-title">Disponibilidade:</span>
+        <span class="stock-badge tablet" id="stock-tablet">📱 carregando...</span>
+        <span class="stock-badge prata"  id="stock-prata">💻 carregando...</span>
+        <span class="stock-badge preto"  id="stock-preto">🖥️ carregando...</span>
       </div>
 
       <div class="legend-row">
@@ -77,18 +77,9 @@
       </div>
 
       <div id="acao-area">
-        <p class="action-label">O que deseja fazer?</p>
-        <div class="action-grid2">
-          <button class="action-btn2 reservar" onclick="selecionarAcao('reservar', this)">
-            <span>📅</span> Reservar
-          </button>
-          <button class="action-btn2 bloquear" onclick="selecionarAcao('bloquear', this)">
-            <span>🔒</span> Bloquear
-          </button>
-        </div>
 
-        <!-- Formulário de reserva -->
-        <div id="reservar-form" style="display:none">
+        <!-- Formulário de reserva direto, sem escolha de ação -->
+        <div id="reservar-form">
           <div class="input-group">
             <label>👤 Nome do professor(a)</label>
             <input type="text" id="nome-input" placeholder="Nome completo..."
@@ -101,17 +92,17 @@
               <button class="equip-btn tablet" onclick="selecionarEquip('tablet', this)">
                 <span class="equip-emoji">📱</span>
                 <span class="equip-name">Tablet</span>
-                <span class="equip-max">máx. 12</span>
+                <span class="equip-max">carregando...</span>
               </button>
               <button class="equip-btn prata" onclick="selecionarEquip('prata', this)">
                 <span class="equip-emoji">💻</span>
                 <span class="equip-name">Note prata</span>
-                <span class="equip-max">máx. 23</span>
+                <span class="equip-max">carregando...</span>
               </button>
               <button class="equip-btn preto" onclick="selecionarEquip('preto', this)">
                 <span class="equip-emoji">🖥️</span>
                 <span class="equip-name">Note preto</span>
-                <span class="equip-max">máx. 11</span>
+                <span class="equip-max">carregando...</span>
               </button>
             </div>
             <p class="error-msg" id="equip-error" style="text-align:left; margin-top:4px"></p>
@@ -125,15 +116,8 @@
           </div>
         </div>
 
-        <!-- Confirmação de bloqueio -->
-        <div id="bloquear-confirm" style="display:none">
-          <p style="font-size:13px; color:var(--ink-light); background:var(--red-bg); border:1.5px solid var(--red-border); border-radius:10px; padding:12px 14px; margin-bottom:4px;">
-            ⚠️ Esta ação bloqueará o horário. Somente coordenadores poderão desbloquear via Google Sheets.
-          </p>
-        </div>
-
-        <button class="btn-primary" id="confirm-btn" onclick="confirmarAcao()" style="display:none; margin-top:8px">
-          ✔ Confirmar
+        <button class="btn-primary" id="confirm-btn" onclick="confirmarAcao()" style="margin-top:8px">
+          ✔ Confirmar Reserva
         </button>
       </div>
 
