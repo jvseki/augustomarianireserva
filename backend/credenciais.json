@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "agendamento-notebooks",
+  "private_key_id": "26447bd33c2beb36c0b09c9ef2c25c8946feafa9",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC/JppKnmqnSQ5m\nhL18dsQsklB3uONMJyyBLJBg7rsf5TRuquODq6udca2MMk/Kdqhk2Juhw6OqFsPm\nQAe2IqsObXjSXqKwM8Pctq4fvl5WoduXVRVgit3wFKvTzhiaiDkCSgmnAh0sygVz\ncn5xBUH4/+MV+CmIjQgyfpK6OYTRN978MAO9OeDsY5niw+XZgJlSC1xhMVmds/s5\nCNqMHLGvJQQ0KsF60gpZXSbIPEH0yRaRFf8letHAwoqD2bVOwOQ21MRKYKdOcYZk\nenTg9KsixUqSsEUSZKR91emE2nEMQSAKu6p8+yH7ORbPzBqpLXizsdUSX/+kO35B\nwyM3y0ebAgMBAAECggEAHvLuGlTJ6envNfQaBfPo0VqjQq8hxiu1jficK8WbcI+Y\nzK5IhgIemDBWrBNdTeemXiWgFTHq5tgmwbnuRbQZRA2/eTgvWR4YgTzmtmcJOTed\nqUPyYR46zutZ4sJEw4h4yoEYTP0PojfXaBjKlhwG0X0E1ILInr5O7HYH5bT4ZzM/\n8/nsuFuw1Vgo1LRPKtX97hMrUG18V/vWMEL/+4iLEWthpVRPsMoAKWA+nfuJRCFk\nLj5VhvF5fedLbuegp6reXGMi2JpgufyedVfGW5+015ffZ/mMwjbVrOfF/Zo0P9Vv\nFnqKzHNF+9CGv+gDiYEQqFeNXbgC+oJrrSucrGJVSQKBgQDjDcfIrypEc5R3YB99\nnVTtPUy8BBoXQkBznkRjy8J9KkESCz7mJ6k/qjZISoduEQAcDwjcbXtz8joZBAo1\nkUK4f8W4veJqNeoOFrnXtx/QgqtkfyIdUb0eCmgbr0Ncx5HGtoGQt1R1bjvu9u7X\n6xxdPQrnj1BS8JMmhhnYj5qklQKBgQDXhROOWtgFP/f5ygDWLF1BryXmaS7JmIJ1\noN3i/c//WLR9G6EEh4tMi3vjk30Euom8rp+iN6v6D6dps6fYu8qZ1/qIT2aitJE0\nwImvuxFf6e7uNeM0ngsky6WDZZfOeJyOh1vSbpQ1DZFSx+KnetA6k3o6wa7XLMi9\nQ8XP7bh/bwKBgBZSZYDCT8p4/nCZ/56O2CmWrDOTx6jft4xmU9znzFAX1lvaxS1F\nWutKZZnH0fatLzCS/dEF5mwotTN+ZS6NAF05GowmBttgP4lxDIY7l6IdJpJzuTve\nrFQGu+N04I9/g0Jg8O30SBZfZv8AQczybVBxTuAjA8eTpTPVXTcgLxjdAoGBAMLP\nCGFJ3i/IpbaFEIKHsXgZAJIoC2GwWGRJF6gBssxl+yeHHOHCP3jeMAsCmyP2FWCX\nG7Z+yhYLplEWUqbHAJhVMKGb2/NAcmyTiSFuX4MqKo3p6cj6/qmw5phB8ZlxTlpL\nIgWxbIgUDoMcKNUoXyZDfl20Cv12/rCNnTWY9IdDAoGBALSE+uU3qgusZS23QLUZ\nBMSixxV1WAy1vX+gXcAQpMt3+2Ll4c9TeMGp2jCHY3ZXSDPM496iwAHiYk6NtHQM\nNjpWFUK0VOTGrKGIO+tp0d2w1CauOnrCuvpnYuG3rxZ3DWgEkTrq0hoZBxTGF1UA\nlvEmERtaeiGuFi3LDq9DZ8G6\n-----END PRIVATE KEY-----\n",
+  "client_email": "nome-acesso-planilha@agendamento-notebooks.iam.gserviceaccount.com",
+  "client_id": "103982797461275547837",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/nome-acesso-planilha%40agendamento-notebooks.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
