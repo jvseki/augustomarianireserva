@@ -6,6 +6,152 @@
   <title>Agendamento de Notebooks</title>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* ==============================
+       CÉLULA EXPIRADA (horário passado)
+       ============================== */
+    td.expirado {
+      background: #f0ede8 !important;
+      color: #a89e8e;
+      cursor: default !important;
+    }
+    td.expirado::before { content: none !important; }
+    .icon-relogio { font-size: 11px; margin-right: 4px; }
+    .txt-expirado {
+      font-size: 11px;
+      font-weight: 600;
+      color: #a89e8e;
+      font-style: italic;
+    }
+    tbody tr:hover td.expirado { background: #f0ede8 !important; }
+
+    /* ==============================
+       LISTA DE HORÁRIOS NO MODAL
+       ============================== */
+    #horarios-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 240px;
+      overflow-y: auto;
+      margin-bottom: 14px;
+      padding-right: 4px;
+    }
+
+    /* scrollbar fina */
+    #horarios-lista::-webkit-scrollbar { width: 4px; }
+    #horarios-lista::-webkit-scrollbar-track { background: transparent; }
+    #horarios-lista::-webkit-scrollbar-thumb { background: #d6c9b0; border-radius: 4px; }
+
+    .horario-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      background: #fffdf7;
+      font-family: 'Nunito', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.13s;
+      text-align: left;
+      width: 100%;
+    }
+
+    .horario-btn:hover:not(:disabled) {
+      background: #eaf7ee;
+      border-color: var(--green-border);
+      transform: translateX(3px);
+    }
+
+    .horario-btn.selecionado {
+      background: var(--green-bg);
+      border-color: var(--green-border);
+      color: var(--green);
+      box-shadow: 2px 2px 0 var(--green-border);
+    }
+
+    .horario-btn.selecionado::after {
+      content: '✔';
+      font-size: 13px;
+      color: var(--green);
+    }
+
+    .horario-btn.passado {
+      background: #f0ede8;
+      border-color: #d6c9b0;
+      color: #a89e8e;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+
+    .horario-btn.bloqueado-slot {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red);
+      cursor: not-allowed;
+      opacity: 0.75;
+    }
+
+    .horario-btn.ocupado-slot {
+      background: var(--blue-bg);
+      border-color: var(--blue-border);
+      color: var(--blue);
+      cursor: not-allowed;
+    }
+
+    .h-hora   { font-size: 12px; font-weight: 800; }
+    .h-status { font-size: 11px; font-weight: 600; color: var(--ink-light); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .horario-btn.selecionado .h-status,
+    .horario-btn.selecionado .h-hora { color: var(--green); }
+    .horario-btn.ocupado-slot .h-status { color: var(--blue); }
+    .horario-btn.bloqueado-slot .h-status { color: var(--red); }
+
+    /* ==============================
+       RESUMO DE SELEÇÃO
+       ============================== */
+    #resumo-selecao {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--green);
+      background: var(--green-bg);
+      border: 1.5px solid var(--green-border);
+      border-radius: 8px;
+      padding: 5px 10px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+
+    /* ==============================
+       MODAL MAIS LARGO para acomodar lista
+       ============================== */
+    .modal {
+      max-width: 460px !important;
+    }
+
+    /* ==============================
+       CABEÇALHO TH clicável
+       ============================== */
+    thead th:not(:first-child) {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    thead th:not(:first-child):hover {
+      background: #3a6040;
+    }
+
+    /* ==============================
+       LEGENDA — expirado
+       ============================== */
+    .badge.expirado {
+      background: #f0ede8;
+      border-color: #c8bfa8;
+      color: #7a6e60;
+    }
+  </style>
 </head>
 <body>
 
@@ -37,7 +183,7 @@
       </div>
 
       <div class="stock-row">
-        <span class="stock-title">Disponibilidade:</span>
+        <span class="stock-title">Estoque hoje:</span>
         <span class="stock-badge tablet" id="stock-tablet">📱 carregando...</span>
         <span class="stock-badge prata"  id="stock-prata">💻 carregando...</span>
         <span class="stock-badge preto"  id="stock-preto">🖥️ carregando...</span>
@@ -48,6 +194,7 @@
         <span class="badge livre">● Livre</span>
         <span class="badge reservado">◆ Reservado</span>
         <span class="badge bloqueado">■ Bloqueado</span>
+        <span class="badge expirado">🕐 Passado</span>
       </div>
     </header>
 
@@ -64,59 +211,68 @@
 
   </div>
 
-  <!-- Modal -->
+  <!-- Modal de reserva por DIA -->
   <div class="overlay" id="overlay">
     <div class="modal">
       <button class="modal-close" onclick="fecharModal()">×</button>
       <div class="modal-header">
-        <span class="modal-emoji">📋</span>
+        <span class="modal-emoji">📅</span>
         <div>
-          <h2 id="modal-title">Reservar horário</h2>
-          <p class="modal-sub" id="modal-sub">Selecione uma ação</p>
+          <h2 id="modal-title">Reservar</h2>
+          <p class="modal-sub" id="modal-sub">Selecione os horários e equipamento</p>
         </div>
       </div>
 
       <div id="acao-area">
 
-        <!-- Formulário de reserva direto, sem escolha de ação -->
-        <div id="reservar-form">
-          <div class="input-group">
-            <label>👤 Nome do professor(a)</label>
-            <input type="text" id="nome-input" placeholder="Nome completo..."
-              onkeydown="if(event.key==='Enter') document.getElementById('qtd-input').focus()">
-          </div>
-
-          <div class="input-group">
-            <label>🎒 Tipo de equipamento</label>
-            <div class="equip-grid">
-              <button class="equip-btn tablet" onclick="selecionarEquip('tablet', this)">
-                <span class="equip-emoji">📱</span>
-                <span class="equip-name">Tablet</span>
-                <span class="equip-max">carregando...</span>
-              </button>
-              <button class="equip-btn prata" onclick="selecionarEquip('prata', this)">
-                <span class="equip-emoji">💻</span>
-                <span class="equip-name">Note prata</span>
-                <span class="equip-max">carregando...</span>
-              </button>
-              <button class="equip-btn preto" onclick="selecionarEquip('preto', this)">
-                <span class="equip-emoji">🖥️</span>
-                <span class="equip-name">Note preto</span>
-                <span class="equip-max">carregando...</span>
-              </button>
-            </div>
-            <p class="error-msg" id="equip-error" style="text-align:left; margin-top:4px"></p>
-          </div>
-
-          <div class="input-group">
-            <label id="qtd-label">Quantidade</label>
-            <input type="number" id="qtd-input" min="1" max="23" value="1"
-              style="width: 100px"
-              onkeydown="if(event.key==='Enter') confirmarAcao()">
-          </div>
+        <!-- Nome do professor -->
+        <div class="input-group">
+          <label>👤 Nome do professor(a)</label>
+          <input type="text" id="nome-input" placeholder="Nome completo..."
+            onkeydown="if(event.key==='Enter') document.getElementById('qtd-input').focus()">
         </div>
 
-        <button class="btn-primary" id="confirm-btn" onclick="confirmarAcao()" style="margin-top:8px">
+        <!-- Lista de horários do dia -->
+        <div class="input-group">
+          <label>⏰ Horários — clique para selecionar</label>
+          <div id="horarios-lista">
+            <!-- preenchido dinamicamente -->
+          </div>
+          <div id="resumo-selecao">Nenhum horário selecionado</div>
+        </div>
+
+        <!-- Equipamento -->
+        <div class="input-group">
+          <label>🎒 Tipo de equipamento</label>
+          <div class="equip-grid">
+            <button class="equip-btn tablet" onclick="selecionarEquip('tablet', this)">
+              <span class="equip-emoji">📱</span>
+              <span class="equip-name">Tablet</span>
+              <span class="equip-max">carregando...</span>
+            </button>
+            <button class="equip-btn prata" onclick="selecionarEquip('prata', this)">
+              <span class="equip-emoji">💻</span>
+              <span class="equip-name">Note prata</span>
+              <span class="equip-max">carregando...</span>
+            </button>
+            <button class="equip-btn preto" onclick="selecionarEquip('preto', this)">
+              <span class="equip-emoji">🖥️</span>
+              <span class="equip-name">Note preto</span>
+              <span class="equip-max">carregando...</span>
+            </button>
+          </div>
+          <p class="error-msg" id="equip-error" style="text-align:left; margin-top:4px"></p>
+        </div>
+
+        <!-- Quantidade -->
+        <div class="input-group">
+          <label id="qtd-label">Quantidade</label>
+          <input type="number" id="qtd-input" min="1" max="23" value="1"
+            style="width: 120px"
+            onkeydown="if(event.key==='Enter') confirmarAcao()">
+        </div>
+
+        <button class="btn-primary" id="confirm-btn" onclick="confirmarAcao()" style="margin-top:4px">
           ✔ Confirmar Reserva
         </button>
       </div>
