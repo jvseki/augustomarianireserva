@@ -14,20 +14,33 @@ async function carregarAgenda() {
 
     let livre = 0, reservado = 0, bloqueado = 0;
 
+    // Guarda cabeçalhos (linha 0) para usar no modal
+    const cabecalhos = data[0] || [];
+
     data.forEach((linha, i) => {
       const tr = document.createElement("tr");
       linha.forEach((celula, j) => {
-        const td = document.createElement(i === 0 ? "th" : "td");
+        const isHeader = i === 0;
+        const isLabelCol = j === 0; // coluna Horário — nunca editável
+
+        const td = document.createElement(isHeader ? "th" : "td");
         td.innerText = celula;
 
-        if (i !== 0) {
+        if (!isHeader && !isLabelCol) {
           const val = celula.trim().toUpperCase();
-          if (val === "LIVRE" || val === "") { td.className = "livre"; livre++; }
-          else if (val === "BLOQUEADO")       { td.className = "bloqueado"; bloqueado++; }
-          else                                { td.className = "reservado"; reservado++; }
+          if (val === "LIVRE" || val === "")  { td.className = "livre"; livre++; }
+          else if (val === "BLOQUEADO")        { td.className = "bloqueado"; bloqueado++; }
+          else                                 { td.className = "reservado"; reservado++; }
 
-          td.onclick = () => abrirModal(i + 1, j + 1, celula);
+          const horario = linha[0] || `Linha ${i + 1}`;
+          const dia     = cabecalhos[j] || `Col. ${j + 1}`;
+          td.onclick = () => abrirModal(i + 1, j + 1, celula, horario, dia);
         }
+
+        if (!isHeader && isLabelCol) {
+          td.className = "label-col";
+        }
+
         tr.appendChild(td);
       });
       tabela.appendChild(tr);
@@ -46,12 +59,12 @@ async function carregarAgenda() {
   }
 }
 
-function abrirModal(linha, coluna, valor) {
+function abrirModal(linha, coluna, valor, horario, dia) {
   linhaAtual = linha;
   colunaAtual = coluna;
   acaoAtual = null;
 
-  document.getElementById("modal-title").textContent = `Notebook — Linha ${linha}, Col. ${coluna}`;
+  document.getElementById("modal-title").textContent = `${dia} — ${horario}`;
   document.getElementById("modal-sub").textContent = valor ? `Situação atual: ${valor}` : "Célula vazia";
 
   document.getElementById("senha-area").style.display = "block";

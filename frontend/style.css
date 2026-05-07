@@ -572,3 +572,20 @@ td.bloqueado::before { content: '■ '; font-size: 9px; }
 
 .toast.success { border-color: var(--green-border); color: var(--green); background: var(--green-bg); }
 .toast.error-toast { border-color: var(--red-border); color: var(--red); background: var(--red-bg); }
+
+/* ==============================
+   COLUNA DE HORÁRIO (rótulo fixo)
+   ============================== */
+td.label-col {
+  color: var(--ink-light);
+  font-family: 'Architects Daughter', cursive;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: default;
+  background: #faf5ea;
+  border-right: 2px solid var(--border);
+}
+
+tbody tr:hover td.label-col {
+  background: #faf5ea;
+}
