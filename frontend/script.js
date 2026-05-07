@@ -1,4 +1,4 @@
-const API = "https://augustomarianireserva.onrender.com";
+const API = "https://backend-reserva-n8ru.onrender.com";
 
 let linhaSel = null;
 let colunaSel = null;
