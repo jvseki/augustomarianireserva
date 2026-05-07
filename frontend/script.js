@@ -15,8 +15,9 @@ async function carregarAgenda() {
       td.innerText = celula;
 
       if (i !== 0) {
-        if (celula === "LIVRE") td.className = "livre";
-        else if (celula === "BLOQUEADO") td.className = "bloqueado";
+        const val = celula.toUpperCase();
+        if (val === "LIVRE" || val === "") td.className = "livre";
+        else if (val === "BLOQUEADO") td.className = "bloqueado";
         else td.className = "reservado";
 
         td.onclick = () => menuEdicao(i + 1, j + 1, celula);
@@ -35,7 +36,7 @@ async function menuEdicao(linha, coluna, valorAtual) {
   if (senha !== "1234") return;
 
   const opcao = prompt(
-    "1 - Reservar\n2 - Bloquear\n3 - Liberar\n4 - Limpar"
+    "O que deseja fazer?\n1 - Reservar\n2 - Bloquear\n3 - Liberar\n4 - Limpar"
   );
 
   let novoValor = valorAtual;
@@ -44,17 +45,19 @@ async function menuEdicao(linha, coluna, valorAtual) {
     const nome = prompt("Digite seu nome:");
     if (!nome) return;
     novoValor = nome;
+  } else if (opcao === "2") {
+    novoValor = "BLOQUEADO";
+  } else if (opcao === "3") {
+    novoValor = "LIVRE";
+  } else if (opcao === "4") {
+    novoValor = "";
+  } else {
+    return; // opção inválida, não faz nada
   }
-
-  if (opcao === "2") novoValor = "BLOQUEADO";
-  if (opcao === "3") novoValor = "LIVRE";
-  if (opcao === "4") novoValor = "";
 
   await fetch(`${API}/editar`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ linha, coluna, valor: novoValor })
   });
 
