@@ -4,760 +4,120 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agendamento de Notebooks</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #060a10;
-      --surface: #0d1520;
-      --border: #1a2a3a;
-      --accent: #00e5ff;
-      --accent2: #ff6b35;
-      --green: #00ff88;
-      --red: #ff3d5a;
-      --blue: #4d9eff;
-      --text: #e2eaf5;
-      --muted: #4a6080;
-      --glass: rgba(13, 21, 32, 0.85);
-    }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: 'Syne', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    /* Background grid */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
-      background-size: 40px 40px;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* Glow orbs */
-    .orb {
-      position: fixed;
-      border-radius: 50%;
-      filter: blur(120px);
-      pointer-events: none;
-      z-index: 0;
-    }
-    .orb-1 {
-      width: 500px; height: 500px;
-      background: rgba(0, 229, 255, 0.06);
-      top: -150px; left: -100px;
-    }
-    .orb-2 {
-      width: 400px; height: 400px;
-      background: rgba(255, 107, 53, 0.05);
-      bottom: -100px; right: -100px;
-    }
-
-    /* Header */
-    header {
-      position: relative;
-      z-index: 10;
-      padding: 32px 40px 24px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-      backdrop-filter: blur(10px);
-    }
-
-    .logo-area {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .logo-icon {
-      width: 44px; height: 44px;
-      background: linear-gradient(135deg, var(--accent), #0088aa);
-      border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 0 20px rgba(0,229,255,0.3);
-    }
-
-    .logo-text h1 {
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: -0.5px;
-      color: var(--text);
-    }
-
-    .logo-text span {
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      color: var(--accent);
-      letter-spacing: 2px;
-      text-transform: uppercase;
-    }
-
-    .header-stats {
-      display: flex;
-      gap: 24px;
-      align-items: center;
-    }
-
-    .stat-pill {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 2px;
-    }
-
-    .stat-pill .num {
-      font-size: 20px;
-      font-weight: 800;
-      line-height: 1;
-    }
-
-    .stat-pill .label {
-      font-family: 'Space Mono', monospace;
-      font-size: 9px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .stat-pill.green .num { color: var(--green); }
-    .stat-pill.red .num { color: var(--red); }
-    .stat-pill.blue .num { color: var(--blue); }
-
-    /* Legend */
-    .legend-bar {
-      position: relative;
-      z-index: 10;
-      display: flex;
-      gap: 6px;
-      padding: 16px 40px;
-      border-bottom: 1px solid var(--border);
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    .legend-bar span {
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-      letter-spacing: 1px;
-      margin-right: 8px;
-    }
-
-    .badge {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 12px;
-      border-radius: 20px;
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      border: 1px solid;
-    }
-
-    .badge-dot {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-    }
-
-    .badge.livre { border-color: rgba(0,255,136,0.3); color: var(--green); background: rgba(0,255,136,0.05); }
-    .badge.livre .badge-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
-
-    .badge.reservado { border-color: rgba(77,158,255,0.3); color: var(--blue); background: rgba(77,158,255,0.05); }
-    .badge.reservado .badge-dot { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
-
-    .badge.bloqueado { border-color: rgba(255,61,90,0.3); color: var(--red); background: rgba(255,61,90,0.05); }
-    .badge.bloqueado .badge-dot { background: var(--red); box-shadow: 0 0 6px var(--red); }
-
-    /* Main content */
-    .main {
-      position: relative;
-      z-index: 10;
-      padding: 32px 40px;
-    }
-
-    /* Loading */
-    .loading-wrap {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 80px 0;
-      gap: 16px;
-    }
-
-    .spinner {
-      width: 40px; height: 40px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    .loading-text {
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: var(--muted);
-      text-transform: uppercase;
-    }
-
-    /* Table wrapper */
-    .table-wrap {
-      overflow-x: auto;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    thead tr {
-      background: rgba(0, 229, 255, 0.04);
-      border-bottom: 1px solid var(--border);
-    }
-
-    th {
-      padding: 16px 20px;
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--accent);
-      font-weight: 400;
-      text-align: left;
-      white-space: nowrap;
-    }
-
-    td {
-      padding: 14px 20px;
-      border-bottom: 1px solid rgba(26,42,58,0.6);
-      font-size: 13px;
-      font-weight: 600;
-      transition: background 0.15s;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-
-    tbody tr:last-child td { border-bottom: none; }
-
-    tbody tr:hover td { background: rgba(0,229,255,0.03); }
-
-    /* Cell states */
-    td.livre {
-      color: var(--green);
-    }
-
-    td.livre::before {
-      content: '● ';
-      font-size: 8px;
-      opacity: 0.8;
-    }
-
-    td.bloqueado {
-      color: var(--red);
-      cursor: not-allowed;
-    }
-
-    td.bloqueado::before {
-      content: '■ ';
-      font-size: 8px;
-      opacity: 0.8;
-    }
-
-    td.reservado {
-      color: var(--blue);
-    }
-
-    td.reservado::before {
-      content: '◆ ';
-      font-size: 8px;
-      opacity: 0.8;
-    }
-
-    /* Modal overlay */
-    .overlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(6,10,16,0.85);
-      backdrop-filter: blur(6px);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .overlay.open { display: flex; }
-
-    .modal {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 32px;
-      width: 100%;
-      max-width: 380px;
-      position: relative;
-      animation: slideUp 0.2s ease;
-      box-shadow: 0 30px 80px rgba(0,0,0,0.6);
-    }
-
-    @keyframes slideUp {
-      from { transform: translateY(20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-
-    .modal h2 {
-      font-size: 18px;
-      font-weight: 800;
-      margin-bottom: 6px;
-    }
-
-    .modal .subtitle {
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      margin-bottom: 28px;
-    }
-
-    .modal-close {
-      position: absolute;
-      top: 20px; right: 20px;
-      background: none; border: none;
-      color: var(--muted); font-size: 20px;
-      cursor: pointer; line-height: 1;
-      transition: color 0.15s;
-    }
-    .modal-close:hover { color: var(--text); }
-
-    .input-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 20px;
-    }
-
-    .input-group label {
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-
-    .input-group input {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 12px 16px;
-      color: var(--text);
-      font-family: 'Syne', sans-serif;
-      font-size: 14px;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-
-    .input-group input:focus {
-      border-color: var(--accent);
-    }
-
-    .action-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    .action-btn {
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      color: var(--text);
-      font-family: 'Syne', sans-serif;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .action-btn .icon { font-size: 20px; }
-
-    .action-btn:hover { transform: translateY(-2px); }
-
-    .action-btn.reservar { border-color: rgba(77,158,255,0.4); color: var(--blue); }
-    .action-btn.reservar:hover { background: rgba(77,158,255,0.1); }
-
-    .action-btn.bloquear { border-color: rgba(255,61,90,0.4); color: var(--red); }
-    .action-btn.bloquear:hover { background: rgba(255,61,90,0.1); }
-
-    .action-btn.liberar { border-color: rgba(0,255,136,0.4); color: var(--green); }
-    .action-btn.liberar:hover { background: rgba(0,255,136,0.1); }
-
-    .action-btn.limpar { border-color: rgba(255,107,53,0.4); color: var(--accent2); }
-    .action-btn.limpar:hover { background: rgba(255,107,53,0.1); }
-
-    .name-input-area {
-      display: none;
-      margin-bottom: 20px;
-    }
-
-    .name-input-area.visible { display: block; }
-
-    .confirm-btn {
-      width: 100%;
-      padding: 14px;
-      background: linear-gradient(135deg, var(--accent), #007fa8);
-      border: none;
-      border-radius: 10px;
-      color: #060a10;
-      font-family: 'Syne', sans-serif;
-      font-size: 14px;
-      font-weight: 800;
-      cursor: pointer;
-      letter-spacing: 0.5px;
-      transition: opacity 0.15s, transform 0.15s;
-    }
-
-    .confirm-btn:hover { opacity: 0.9; transform: translateY(-1px); }
-    .confirm-btn:active { transform: translateY(0); }
-
-    .error-msg {
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      color: var(--red);
-      text-align: center;
-      margin-top: 10px;
-      min-height: 16px;
-    }
-
-    /* Toast */
-    .toast {
-      position: fixed;
-      bottom: 32px;
-      right: 32px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px 20px;
-      font-size: 13px;
-      font-weight: 600;
-      z-index: 200;
-      transform: translateY(80px);
-      opacity: 0;
-      transition: all 0.3s cubic-bezier(.34,1.56,.64,1);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
-    }
-
-    .toast.show {
-      transform: translateY(0);
-      opacity: 1;
-    }
-
-    .toast.success { border-color: rgba(0,255,136,0.3); color: var(--green); }
-    .toast.error-toast { border-color: rgba(255,61,90,0.3); color: var(--red); }
-
-    /* Refresh btn */
-    .refresh-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 8px 14px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      transition: all 0.15s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
-
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 16px;
-    }
-
-    .section-title {
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="orb orb-1"></div>
-<div class="orb orb-2"></div>
+  <div class="notebook-lines"></div>
 
-<header>
-  <div class="logo-area">
-    <div class="logo-icon">💻</div>
-    <div class="logo-text">
-      <h1>Agendamento de Notebooks</h1>
-      <span>Sistema de Reservas Escolares</span>
-    </div>
-  </div>
-  <div class="header-stats">
-    <div class="stat-pill green">
-      <span class="num" id="count-livre">—</span>
-      <span class="label">Livres</span>
-    </div>
-    <div class="stat-pill blue">
-      <span class="num" id="count-reservado">—</span>
-      <span class="label">Reservados</span>
-    </div>
-    <div class="stat-pill red">
-      <span class="num" id="count-bloqueado">—</span>
-      <span class="label">Bloqueados</span>
-    </div>
-  </div>
-</header>
+  <div class="page-wrap">
 
-<div class="legend-bar">
-  <span>Status:</span>
-  <div class="badge livre"><div class="badge-dot"></div> Livre</div>
-  <div class="badge reservado"><div class="badge-dot"></div> Reservado</div>
-  <div class="badge bloqueado"><div class="badge-dot"></div> Bloqueado</div>
-</div>
-
-<div class="main">
-  <div class="section-header">
-    <span class="section-title">Grade de Agendamentos</span>
-    <button class="refresh-btn" onclick="carregarAgenda()">↺ Atualizar</button>
-  </div>
-
-  <div id="loading" class="loading-wrap">
-    <div class="spinner"></div>
-    <span class="loading-text">Carregando dados...</span>
-  </div>
-
-  <div class="table-wrap" id="table-container" style="display:none">
-    <table id="tabela"></table>
-  </div>
-</div>
-
-<!-- Modal -->
-<div class="overlay" id="overlay">
-  <div class="modal">
-    <button class="modal-close" onclick="fecharModal()">×</button>
-    <h2 id="modal-title">Editar Célula</h2>
-    <p class="subtitle" id="modal-sub">Selecione uma ação</p>
-
-    <div class="input-group" id="senha-area">
-      <label>Senha de acesso</label>
-      <input type="password" id="senha-input" placeholder="••••" onkeydown="if(event.key==='Enter') verificarSenha()">
-    </div>
-
-    <div id="acao-area" style="display:none">
-      <div class="action-grid">
-        <button class="action-btn reservar" onclick="selecionarAcao('reservar')">
-          <span class="icon">📅</span> Reservar
-        </button>
-        <button class="action-btn bloquear" onclick="selecionarAcao('bloquear')">
-          <span class="icon">🔒</span> Bloquear
-        </button>
-        <button class="action-btn liberar" onclick="selecionarAcao('liberar')">
-          <span class="icon">✅</span> Liberar
-        </button>
-        <button class="action-btn limpar" onclick="selecionarAcao('limpar')">
-          <span class="icon">🗑️</span> Limpar
-        </button>
+    <header>
+      <div class="header-top">
+        <div class="logo-area">
+          <div class="chalkboard-icon">💻</div>
+          <div>
+            <h1>Agendamento de Notebooks</h1>
+            <p class="school-sub">📚 Sistema de Reservas — Laboratório de Informática</p>
+          </div>
+        </div>
+        <button class="refresh-btn" onclick="carregarAgenda()">↺ Atualizar</button>
       </div>
 
-      <div class="name-input-area" id="name-area">
-        <div class="input-group">
-          <label>Nome do professor</label>
-          <input type="text" id="nome-input" placeholder="Seu nome completo" onkeydown="if(event.key==='Enter') confirmarAcao()">
+      <div class="stats-row">
+        <div class="stat-card green">
+          <span class="stat-num" id="count-livre">—</span>
+          <span class="stat-label">✏️ Livres</span>
+        </div>
+        <div class="stat-card blue">
+          <span class="stat-num" id="count-reservado">—</span>
+          <span class="stat-label">📌 Reservados</span>
+        </div>
+        <div class="stat-card red">
+          <span class="stat-num" id="count-bloqueado">—</span>
+          <span class="stat-label">🔒 Bloqueados</span>
         </div>
       </div>
 
-      <button class="confirm-btn" id="confirm-btn" onclick="confirmarAcao()" style="display:none">
-        Confirmar
-      </button>
-    </div>
+      <div class="legend-row">
+        <span class="legend-title">Legenda:</span>
+        <span class="badge livre">● Livre</span>
+        <span class="badge reservado">◆ Reservado</span>
+        <span class="badge bloqueado">■ Bloqueado</span>
+      </div>
+    </header>
 
-    <div class="error-msg" id="error-msg"></div>
+    <main>
+      <div id="loading" class="loading-wrap">
+        <div class="pencil-loader">✏️</div>
+        <p class="loading-text">Carregando agenda...</p>
+      </div>
+
+      <div class="table-wrap" id="table-container" style="display:none">
+        <table id="tabela"></table>
+      </div>
+    </main>
+
   </div>
-</div>
 
-<!-- Toast -->
-<div class="toast" id="toast"></div>
+  <!-- Modal -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <button class="modal-close" onclick="fecharModal()">×</button>
+      <div class="modal-header">
+        <span class="modal-emoji">📋</span>
+        <div>
+          <h2 id="modal-title">Editar Célula</h2>
+          <p class="modal-sub" id="modal-sub">Selecione uma ação</p>
+        </div>
+      </div>
 
-<script>
-const API = "https://backend-reserva-n8ru.onrender.com";
-let linhaAtual, colunaAtual, acaoAtual;
+      <div id="senha-area">
+        <div class="input-group">
+          <label>🔑 Senha de acesso</label>
+          <input type="password" id="senha-input" placeholder="Digite a senha..."
+            onkeydown="if(event.key==='Enter') verificarSenha()">
+        </div>
+        <button class="btn-primary" onclick="verificarSenha()">Entrar</button>
+      </div>
 
-async function carregarAgenda() {
-  document.getElementById("loading").style.display = "flex";
-  document.getElementById("table-container").style.display = "none";
+      <div id="acao-area" style="display:none">
+        <p class="action-label">O que deseja fazer?</p>
+        <div class="action-grid">
+          <button class="action-btn reservar" onclick="selecionarAcao('reservar', this)">
+            <span>📅</span> Reservar
+          </button>
+          <button class="action-btn bloquear" onclick="selecionarAcao('bloquear', this)">
+            <span>🔒</span> Bloquear
+          </button>
+          <button class="action-btn liberar" onclick="selecionarAcao('liberar', this)">
+            <span>✅</span> Liberar
+          </button>
+          <button class="action-btn limpar" onclick="selecionarAcao('limpar', this)">
+            <span>🗑️</span> Limpar
+          </button>
+        </div>
 
-  try {
-    const res = await fetch(`${API}/agenda`);
-    const data = await res.json();
+        <div class="name-area" id="name-area">
+          <div class="input-group">
+            <label>👤 Nome do professor</label>
+            <input type="text" id="nome-input" placeholder="Seu nome completo..."
+              onkeydown="if(event.key==='Enter') confirmarAcao()">
+          </div>
+        </div>
 
-    const tabela = document.getElementById("tabela");
-    tabela.innerHTML = "";
+        <button class="btn-primary" id="confirm-btn" onclick="confirmarAcao()" style="display:none">
+          ✔ Confirmar
+        </button>
+      </div>
 
-    let livre = 0, reservado = 0, bloqueado = 0;
+      <p class="error-msg" id="error-msg"></p>
+    </div>
+  </div>
 
-    data.forEach((linha, i) => {
-      const tr = document.createElement("tr");
-      linha.forEach((celula, j) => {
-        const td = document.createElement(i === 0 ? "th" : "td");
-        td.innerText = celula;
+  <div class="toast" id="toast"></div>
 
-        if (i !== 0) {
-          const val = celula.trim().toUpperCase();
-          if (val === "LIVRE" || val === "") { td.className = "livre"; livre++; }
-          else if (val === "BLOQUEADO") { td.className = "bloqueado"; bloqueado++; }
-          else { td.className = "reservado"; reservado++; }
-
-          td.onclick = () => abrirModal(i + 1, j + 1, celula);
-        }
-        tr.appendChild(td);
-      });
-      tabela.appendChild(tr);
-    });
-
-    document.getElementById("count-livre").textContent = livre;
-    document.getElementById("count-reservado").textContent = reservado;
-    document.getElementById("count-bloqueado").textContent = bloqueado;
-
-    document.getElementById("loading").style.display = "none";
-    document.getElementById("table-container").style.display = "block";
-  } catch (e) {
-    document.getElementById("loading").innerHTML = `<span style="color:var(--red);font-family:'Space Mono',monospace;font-size:12px">⚠ Erro ao conectar com o servidor</span>`;
-  }
-}
-
-function abrirModal(linha, coluna, valor) {
-  linhaAtual = linha;
-  colunaAtual = coluna;
-  acaoAtual = null;
-
-  document.getElementById("modal-title").textContent = `Coluna ${coluna} · Linha ${linha}`;
-  document.getElementById("modal-sub").textContent = valor ? `Atual: ${valor}` : "Célula vazia";
-  document.getElementById("senha-area").style.display = "block";
-  document.getElementById("acao-area").style.display = "none";
-  document.getElementById("name-area").classList.remove("visible");
-  document.getElementById("confirm-btn").style.display = "none";
-  document.getElementById("senha-input").value = "";
-  document.getElementById("nome-input").value = "";
-  document.getElementById("error-msg").textContent = "";
-
-  document.getElementById("overlay").classList.add("open");
-  setTimeout(() => document.getElementById("senha-input").focus(), 100);
-}
-
-function fecharModal() {
-  document.getElementById("overlay").classList.remove("open");
-}
-
-document.getElementById("overlay").addEventListener("click", function(e) {
-  if (e.target === this) fecharModal();
-});
-
-function verificarSenha() {
-  const senha = document.getElementById("senha-input").value;
-  if (senha !== "1234") {
-    document.getElementById("error-msg").textContent = "Senha incorreta.";
-    document.getElementById("senha-input").value = "";
-    return;
-  }
-  document.getElementById("senha-area").style.display = "none";
-  document.getElementById("acao-area").style.display = "block";
-  document.getElementById("error-msg").textContent = "";
-}
-
-function selecionarAcao(acao) {
-  acaoAtual = acao;
-  document.querySelectorAll(".action-btn").forEach(b => b.style.opacity = "0.4");
-  event.currentTarget.style.opacity = "1";
-
-  if (acao === "reservar") {
-    document.getElementById("name-area").classList.add("visible");
-    setTimeout(() => document.getElementById("nome-input").focus(), 100);
-  } else {
-    document.getElementById("name-area").classList.remove("visible");
-  }
-  document.getElementById("confirm-btn").style.display = "block";
-}
-
-async function confirmarAcao() {
-  if (!acaoAtual) return;
-
-  let novoValor = "";
-  if (acaoAtual === "reservar") {
-    const nome = document.getElementById("nome-input").value.trim();
-    if (!nome) { document.getElementById("error-msg").textContent = "Digite seu nome."; return; }
-    novoValor = nome;
-  } else if (acaoAtual === "bloquear") {
-    novoValor = "BLOQUEADO";
-  } else if (acaoAtual === "liberar") {
-    novoValor = "LIVRE";
-  } else if (acaoAtual === "limpar") {
-    novoValor = "";
-  }
-
-  document.getElementById("confirm-btn").textContent = "Salvando...";
-  document.getElementById("confirm-btn").disabled = true;
-
-  try {
-    await fetch(`${API}/editar`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ linha: linhaAtual, coluna: colunaAtual, valor: novoValor })
-    });
-    fecharModal();
-    showToast("✓ Alteração salva com sucesso!", "success");
-    carregarAgenda();
-  } catch (e) {
-    showToast("✗ Erro ao salvar. Tente novamente.", "error-toast");
-  }
-}
-
-function showToast(msg, type) {
-  const toast = document.getElementById("toast");
-  toast.textContent = msg;
-  toast.className = `toast ${type} show`;
-  setTimeout(() => toast.classList.remove("show"), 3000);
-}
-
-carregarAgenda();
-</script>
+  <script src="script.js"></script>
 </body>
 </html>

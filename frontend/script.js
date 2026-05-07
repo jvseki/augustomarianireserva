@@ -1,67 +1,151 @@
 const API = "https://backend-reserva-n8ru.onrender.com";
+let linhaAtual, colunaAtual, acaoAtual;
 
 async function carregarAgenda() {
-  const res = await fetch(`${API}/agenda`);
-  const data = await res.json();
+  document.getElementById("loading").style.display = "flex";
+  document.getElementById("table-container").style.display = "none";
 
-  const tabela = document.getElementById("tabela");
-  tabela.innerHTML = "";
+  try {
+    const res = await fetch(`${API}/agenda`);
+    const data = await res.json();
 
-  data.forEach((linha, i) => {
-    const tr = document.createElement("tr");
+    const tabela = document.getElementById("tabela");
+    tabela.innerHTML = "";
 
-    linha.forEach((celula, j) => {
-      const td = document.createElement(i === 0 ? "th" : "td");
-      td.innerText = celula;
+    let livre = 0, reservado = 0, bloqueado = 0;
 
-      if (i !== 0) {
-        const val = celula.toUpperCase();
-        if (val === "LIVRE" || val === "") td.className = "livre";
-        else if (val === "BLOQUEADO") td.className = "bloqueado";
-        else td.className = "reservado";
+    data.forEach((linha, i) => {
+      const tr = document.createElement("tr");
+      linha.forEach((celula, j) => {
+        const td = document.createElement(i === 0 ? "th" : "td");
+        td.innerText = celula;
 
-        td.onclick = () => menuEdicao(i + 1, j + 1, celula);
-      }
+        if (i !== 0) {
+          const val = celula.trim().toUpperCase();
+          if (val === "LIVRE" || val === "") { td.className = "livre"; livre++; }
+          else if (val === "BLOQUEADO")       { td.className = "bloqueado"; bloqueado++; }
+          else                                { td.className = "reservado"; reservado++; }
 
-      tr.appendChild(td);
+          td.onclick = () => abrirModal(i + 1, j + 1, celula);
+        }
+        tr.appendChild(td);
+      });
+      tabela.appendChild(tr);
     });
 
-    tabela.appendChild(tr);
-  });
+    document.getElementById("count-livre").textContent = livre;
+    document.getElementById("count-reservado").textContent = reservado;
+    document.getElementById("count-bloqueado").textContent = bloqueado;
+
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("table-container").style.display = "block";
+
+  } catch (e) {
+    document.getElementById("loading").innerHTML =
+      `<p style="color:#c0302a;font-family:'Architects Daughter',cursive;font-size:16px">⚠️ Erro ao conectar com o servidor</p>`;
+  }
 }
 
+function abrirModal(linha, coluna, valor) {
+  linhaAtual = linha;
+  colunaAtual = coluna;
+  acaoAtual = null;
 
-async function menuEdicao(linha, coluna, valorAtual) {
-  const senha = prompt("Digite a senha:");
-  if (senha !== "1234") return;
+  document.getElementById("modal-title").textContent = `Notebook — Linha ${linha}, Col. ${coluna}`;
+  document.getElementById("modal-sub").textContent = valor ? `Situação atual: ${valor}` : "Célula vazia";
 
-  const opcao = prompt(
-    "O que deseja fazer?\n1 - Reservar\n2 - Bloquear\n3 - Liberar\n4 - Limpar"
-  );
+  document.getElementById("senha-area").style.display = "block";
+  document.getElementById("acao-area").style.display = "none";
+  document.getElementById("name-area").classList.remove("visible");
+  document.getElementById("confirm-btn").style.display = "none";
+  document.getElementById("senha-input").value = "";
+  document.getElementById("nome-input").value = "";
+  document.getElementById("error-msg").textContent = "";
 
-  let novoValor = valorAtual;
+  document.querySelectorAll(".action-btn").forEach(b => b.classList.remove("active"));
 
-  if (opcao === "1") {
-    const nome = prompt("Digite seu nome:");
-    if (!nome) return;
-    novoValor = nome;
-  } else if (opcao === "2") {
-    novoValor = "BLOQUEADO";
-  } else if (opcao === "3") {
-    novoValor = "LIVRE";
-  } else if (opcao === "4") {
-    novoValor = "";
+  document.getElementById("overlay").classList.add("open");
+  setTimeout(() => document.getElementById("senha-input").focus(), 100);
+}
+
+function fecharModal() {
+  document.getElementById("overlay").classList.remove("open");
+}
+
+document.getElementById("overlay").addEventListener("click", function (e) {
+  if (e.target === this) fecharModal();
+});
+
+function verificarSenha() {
+  const senha = document.getElementById("senha-input").value;
+  if (senha !== "1234") {
+    document.getElementById("error-msg").textContent = "❌ Senha incorreta.";
+    document.getElementById("senha-input").value = "";
+    return;
+  }
+  document.getElementById("senha-area").style.display = "none";
+  document.getElementById("acao-area").style.display = "block";
+  document.getElementById("error-msg").textContent = "";
+}
+
+function selecionarAcao(acao, btn) {
+  acaoAtual = acao;
+  document.querySelectorAll(".action-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+
+  if (acao === "reservar") {
+    document.getElementById("name-area").classList.add("visible");
+    setTimeout(() => document.getElementById("nome-input").focus(), 100);
   } else {
-    return; // opção inválida, não faz nada
+    document.getElementById("name-area").classList.remove("visible");
+  }
+  document.getElementById("confirm-btn").style.display = "block";
+  document.getElementById("error-msg").textContent = "";
+}
+
+async function confirmarAcao() {
+  if (!acaoAtual) return;
+
+  let novoValor = "";
+  if (acaoAtual === "reservar") {
+    const nome = document.getElementById("nome-input").value.trim();
+    if (!nome) { document.getElementById("error-msg").textContent = "✏️ Digite seu nome."; return; }
+    novoValor = nome;
+  } else if (acaoAtual === "bloquear") {
+    novoValor = "BLOQUEADO";
+  } else if (acaoAtual === "liberar") {
+    novoValor = "LIVRE";
+  } else if (acaoAtual === "limpar") {
+    novoValor = "";
   }
 
-  await fetch(`${API}/editar`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ linha, coluna, valor: novoValor })
-  });
+  const btn = document.getElementById("confirm-btn");
+  btn.textContent = "Salvando...";
+  btn.disabled = true;
 
-  carregarAgenda();
+  try {
+    await fetch(`${API}/editar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ linha: linhaAtual, coluna: colunaAtual, valor: novoValor })
+    });
+
+    fecharModal();
+    showToast("✔ Alteração salva com sucesso!", "success");
+    carregarAgenda();
+
+  } catch (e) {
+    showToast("✗ Erro ao salvar. Tente novamente.", "error-toast");
+    btn.textContent = "✔ Confirmar";
+    btn.disabled = false;
+  }
+}
+
+function showToast(msg, type) {
+  const toast = document.getElementById("toast");
+  toast.textContent = msg;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
 carregarAgenda();
