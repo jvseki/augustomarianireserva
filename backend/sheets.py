@@ -3,27 +3,19 @@ import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# =========================
-# 🔐 CONFIG GOOGLE
-# =========================
-
 scope = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive"
 ]
 
-# pega credenciais do Render
+# 🔥 Credenciais vindas do Render (variável de ambiente)
 creds_json = os.environ.get("GOOGLE_CREDENTIALS")
 
 if not creds_json:
-    raise Exception("❌ GOOGLE_CREDENTIALS não configurado no Render")
+    raise Exception("GOOGLE_CREDENTIALS não configurado no Render")
 
-try:
-    creds_dict = json.loads(creds_json)
-except Exception as e:
-    raise Exception("❌ Erro ao ler JSON das credenciais: " + str(e))
+creds_dict = json.loads(creds_json)
 
-# autenticação
 creds = ServiceAccountCredentials.from_json_keyfile_dict(
     creds_dict,
     scope
@@ -31,36 +23,29 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(
 
 client = gspread.authorize(creds)
 
-# =========================
-# 📊 PLANILHA
-# =========================
+# =========================================
+# 📌 SUA PLANILHA (USE O ID, NÃO O NOME)
+# =========================================
+SHEET_ID = "1uixhu6rN03HrMy-1ECf2U-Gr5bpKkbbiToiHGMOglk0"
 
-SHEET_NAME = "AGENDAMENTO NOTEBOOKS"
+sheet = client.open_by_key(SHEET_ID).sheet1
 
-try:
-    sheet = client.open(SHEET_NAME).sheet1
-except Exception as e:
-    raise Exception(f"❌ Erro ao abrir planilha: {e}")
 
 # =========================
-# 📌 FUNÇÕES
+# 📌 FUNÇÕES DO SISTEMA
 # =========================
 
 def get_all_data():
-    """Retorna todos os dados da planilha"""
     return sheet.get_all_records()
 
 
 def get_cell(row, col):
-    """Lê uma célula específica"""
     return sheet.cell(row, col).value
 
 
 def update_cell(row, col, value):
-    """Atualiza uma célula"""
     sheet.update_cell(row, col, value)
 
 
 def clear_cell(row, col):
-    """Limpa uma célula"""
     sheet.update_cell(row, col, "")
