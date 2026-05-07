@@ -1,61 +1,40 @@
+import os
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from sheets import get_all_data, get_cell, update_cell
-from config import ADMIN_PASSWORD
-import os
+
+from sheets import get_all_data, update_cell, get_cell
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app)
+
+# 🔥 PORTA DO RENDER
+port = int(os.environ.get("PORT", 5000))
 
 
 @app.route("/")
 def home():
-    return "API rodando 🚀"
+    return jsonify({"status": "API rodando 🚀"})
 
 
-@app.route("/agenda", methods=["GET"])
-def agenda():
-    data = get_all_data()
-    return jsonify(data)
+@app.route("/dados")
+def dados():
+    return jsonify(get_all_data())
 
 
-@app.route("/reservar", methods=["POST"])
-def reservar():
+@app.route("/get")
+def get():
+    row = int(request.args.get("row"))
+    col = int(request.args.get("col"))
+    return jsonify({"value": get_cell(row, col)})
+
+
+@app.route("/update", methods=["POST"])
+def update():
     data = request.json
-    linha = data["linha"]
-    coluna = data["coluna"]
-    nome = data["nome"]
-
-    valor_atual = get_cell(linha, coluna)
-
-    if valor_atual != "LIVRE":
-        return jsonify({"erro": "Horário indisponível"}), 400
-
-    update_cell(linha, coluna, nome)
-
-    return jsonify({"msg": "Reservado com sucesso"})
+    update_cell(data["row"], data["col"], data["value"])
+    return jsonify({"status": "ok"})
 
 
-@app.route("/editar", methods=["POST"])
-def editar():
-    data = request.json
-
-    linha = data.get("linha")
-    coluna = data.get("coluna")
-    valor = data.get("valor")
-    senha = data.get("senha")
-
-    # 🔐 valida senha
-    if senha != ADMIN_PASSWORD:
-        return jsonify({"erro": "Senha incorreta"}), 403
-
-    try:
-        update_cell(linha, coluna, valor)
-        return jsonify({"msg": "Atualizado com sucesso"})
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
-
-
+# 🔥 IMPORTANTE: 0.0.0.0 + PORT
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)
