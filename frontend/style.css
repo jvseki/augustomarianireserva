@@ -589,3 +589,142 @@ td.label-col {
 tbody tr:hover td.label-col {
   background: #faf5ea;
 }
+
+
+/* ==============================
+   ESTOQUE NO HEADER
+   ============================== */
+.stock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.stock-title {
+  font-family: "Architects Daughter", cursive;
+  font-size: 13px;
+  color: var(--ink-light);
+  margin-right: 4px;
+}
+
+.stock-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 2px solid;
+}
+
+.stock-badge.tablet {
+  background: #f0eaff;
+  border-color: #c9b5f0;
+  color: #5b35b0;
+}
+
+.stock-badge.prata {
+  background: var(--blue-bg);
+  border-color: var(--blue-border);
+  color: var(--blue);
+}
+
+.stock-badge.preto {
+  background: #f5f0e8;
+  border-color: #c8bfa8;
+  color: #4a3f2e;
+}
+
+/* ==============================
+   CÉLULA RESERVADA COM 2 LINHAS
+   ============================== */
+.cell-nome {
+  display: block;
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--blue);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.cell-equip {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-light);
+  margin-top: 2px;
+  white-space: nowrap;
+}
+
+/* ==============================
+   GRID DE AÇÕES (só 2 botões)
+   ============================== */
+.action-grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.action-btn2 {
+  padding: 13px 10px;
+  border-radius: 10px;
+  border: 2px solid;
+  background: #fffdf7;
+  font-family: "Nunito", sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s;
+}
+
+.action-btn2 span { font-size: 22px; }
+.action-btn2:hover { transform: translateY(-2px); }
+.action-btn2.active { transform: translateY(0) !important; }
+
+.action-btn2.reservar { border-color: var(--blue-border); color: var(--blue); }
+.action-btn2.reservar:hover, .action-btn2.reservar.active { background: var(--blue-bg); box-shadow: 2px 2px 0 var(--blue-border); }
+
+.action-btn2.bloquear { border-color: var(--red-border); color: var(--red); }
+.action-btn2.bloquear:hover, .action-btn2.bloquear.active { background: var(--red-bg); box-shadow: 2px 2px 0 var(--red-border); }
+
+/* ==============================
+   BOTÕES DE EQUIPAMENTO
+   ============================== */
+.equip-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.equip-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: #fffdf7;
+  font-family: "Nunito", sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.equip-btn:hover { transform: translateY(-2px); background: #f5f0e8; }
+
+.equip-btn.active.tablet  { background: #f0eaff; border-color: #c9b5f0; box-shadow: 2px 2px 0 #c9b5f0; }
+.equip-btn.active.prata   { background: var(--blue-bg); border-color: var(--blue-border); box-shadow: 2px 2px 0 var(--blue-border); }
+.equip-btn.active.preto   { background: #f5f0e8; border-color: #c8bfa8; box-shadow: 2px 2px 0 #c8bfa8; }
+
+.equip-emoji { font-size: 22px; }
+.equip-name  { font-size: 11px; font-weight: 800; color: var(--ink); }
+.equip-max   { font-size: 10px; color: var(--ink-light); font-weight: 600; }
+
