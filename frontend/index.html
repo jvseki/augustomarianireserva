@@ -154,22 +154,23 @@ function toMin(s) { const [h,m]=s.split(":").map(Number); return h*60+m; }
 function diaSem() { return new Date().getDay(); } // 0=dom, 1=seg … 5=sex, 6=sab
 function colParaDia(col) { return col - 1; } // col2→1(seg), col6→5(sex)
 
-// ── FIX: dias passados da semana (não só horários de hoje) ──
+// FIX: se estamos exibindo a semana SEGUINTE (sexta >= 18h / fim de semana),
+// nenhum slot é passado — a semana toda está no futuro
 function ePassadoHoje(coluna, ln) {
-  const hoje = diaSem();        // 1–5 para seg–sex
-  const diaDaColuna = colParaDia(coluna); // 1=seg … 5=sex
+  const agr  = new Date();
+  const ds   = agr.getDay();
+  const semanaFutura = (ds === 5 && agr.getHours() >= 18) || ds === 6 || ds === 0;
+  if (semanaFutura) return false; // semana que vem: nada é passado
 
-  // Dias anteriores ao de hoje → tudo passado
-  if (diaDaColuna < hoje) return true;
+  const hoje = ds; // 1=seg … 5=sex
+  const diaDaColuna = coluna - 1; // col2=1(seg) … col6=5(sex)
 
-  // Dia de hoje → verifica o horário
-  if (diaDaColuna === hoje) {
+  if (diaDaColuna < hoje) return true;   // dia anterior → tudo passado
+  if (diaDaColuna === hoje) {            // hoje → verifica horário
     const h = HORARIOS[ln];
     return h ? agora() >= toMin(h[1]) : false;
   }
-
-  // Dias futuros → não é passado
-  return false;
+  return false; // dia futuro → não é passado
 }
 
 // ════════════════════════════════════════
