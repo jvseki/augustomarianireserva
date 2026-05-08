@@ -428,7 +428,7 @@ function atualizarStockHeader(_dados) {
     const {emoji, total} = ESTOQUE[tipo];
     const pl = tipo==="tablet" ? "tablets" : ESTOQUE[tipo].label + "s";
     badge.classList.remove("esgotado");
-    badge.innerHTML = `${emoji} ${total}/${total} disponíveis`;
+    badge.innerHTML = `${emoji} ${total} ${pl}`;
   });
 }
 
