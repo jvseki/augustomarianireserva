@@ -418,33 +418,17 @@ async function carregarAgenda() {
 }
 
 // ════════════════════════════════════════
-// STOCK HEADER
+// STOCK HEADER — sempre mostra o total fixo
+// Os dispositivos voltam após cada aula, não faz sentido descontar
 // ════════════════════════════════════════
-function atualizarStockHeader(dados) {
-  const hoje = diaSem(); // 1=seg … 5=sex
-  const col  = (hoje >= 1 && hoje <= 5) ? hoje + 1 : null;
-
-  let disp;
-  if (!col) {
-    // Final de semana: mostra total cheio
-    disp = {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
-  } else {
-    disp = dispDia(col, dados);
-  }
-
+function atualizarStockHeader(_dados) {
   Object.keys(ESTOQUE).forEach(tipo => {
     const badge = document.getElementById(`stock-${tipo}`);
     if (!badge) return;
     const {emoji, total} = ESTOQUE[tipo];
     const pl = tipo==="tablet" ? "tablets" : ESTOQUE[tipo].label + "s";
-    const d  = disp[tipo];
     badge.classList.remove("esgotado");
-    if (d <= 0) {
-      badge.innerHTML = `${emoji} <span class="stock-zero">0/${total} ${pl}</span>`;
-      badge.classList.add("esgotado");
-    } else {
-      badge.innerHTML = `${emoji} ${d}/${total} disponíveis`;
-    }
+    badge.innerHTML = `${emoji} ${total}/${total} disponíveis`;
   });
 }
 
