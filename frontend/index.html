@@ -4,285 +4,945 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agendamento de Notebooks</title>
-  <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
   <style>
-    /* ==============================
-       CÉLULA EXPIRADA (horário passado)
-       ============================== */
+    :root {
+      --bg: #f5f0e8;
+      --paper: #fffdf7;
+      --line: #ddd5c0;
+      --margin-line: #f4a7a7;
+      --border: #d6c9b0;
+      --shadow: rgba(60,40,10,0.13);
+      --ink: #1e1a14;
+      --ink2: #5a4e38;
+      --ink3: #9a8e78;
+      --green: #2a7d45;
+      --green-bg: #e8f5ee;
+      --green-border: #9dd4b0;
+      --blue: #1a55a8;
+      --blue-bg: #e6eef9;
+      --blue-border: #8ab0e8;
+      --red: #b8281e;
+      --red-bg: #fdecea;
+      --red-border: #eea8a4;
+      --orange: #c05a00;
+      --orange-bg: #fff3e0;
+      --orange-border: #f0c070;
+      --gray-bg: #ede9e0;
+      --gray-text: #9a8e78;
+      --hdr: #1e2e20;
+      --hdr-text: #c8e8cc;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0;
+      background-image:
+        linear-gradient(90deg, transparent 72px, var(--margin-line) 72px, var(--margin-line) 74px, transparent 74px),
+        repeating-linear-gradient(transparent, transparent 31px, var(--line) 31px, var(--line) 32px);
+      background-color: var(--paper);
+      opacity: 0.65;
+    }
+
+    .page-wrap {
+      position: relative; z-index: 1;
+      max-width: 1160px; margin: 0 auto;
+      padding: 36px 32px 80px 90px;
+    }
+
+    /* HEADER */
+    header { margin-bottom: 30px; }
+
+    .header-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px; flex-wrap: wrap; gap: 14px;
+    }
+
+    .logo-area { display: flex; align-items: center; gap: 16px; }
+
+    .logo-icon {
+      width: 54px; height: 54px;
+      background: var(--hdr); border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      box-shadow: 3px 3px 0 #0a140c, 0 6px 20px rgba(0,0,0,.2);
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-family: 'Architects Daughter', cursive;
+      font-size: 24px; color: var(--ink); line-height: 1.2;
+    }
+    .school-sub { font-size: 12px; color: var(--ink2); margin-top: 3px; font-weight: 600; }
+
+    .header-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    .refresh-btn {
+      background: var(--hdr); color: var(--hdr-text);
+      border: none; padding: 10px 18px; border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer; box-shadow: 2px 2px 0 #0a140c; transition: all .15s;
+    }
+    .refresh-btn:hover { transform: translateY(-2px); box-shadow: 2px 4px 0 #0a140c; }
+    .refresh-btn:active { transform: translateY(0); box-shadow: 1px 1px 0 #0a140c; }
+
+    /* MINI CALENDÁRIO */
+    .cal-wrap {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--paper); border: 2px solid var(--border);
+      border-radius: var(--radius); padding: 6px 10px;
+      box-shadow: 2px 2px 0 var(--shadow);
+    }
+    .cal-day {
+      width: 38px; height: 42px; border-radius: 8px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      cursor: pointer; transition: all .15s;
+      border: 1.5px solid transparent; gap: 2px;
+    }
+    .cal-day:hover { background: var(--green-bg); border-color: var(--green-border); }
+    .cal-day.hoje  { background: var(--hdr); border-color: var(--hdr); }
+    .cal-day-name  { font-size: 9px; color: var(--ink3); text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+    .cal-day-num   { font-size: 15px; font-weight: 800; color: var(--ink); }
+    .cal-day.hoje .cal-day-name,
+    .cal-day.hoje .cal-day-num { color: #d4f0d8; }
+    .cal-day.tem-reserva::after {
+      content: ''; width: 5px; height: 5px;
+      border-radius: 50%; background: var(--blue);
+    }
+    .cal-day.hoje.tem-reserva::after { background: #7de8a0; }
+
+    /* STATS */
+    .stats-row { display: flex; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .stat-card {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 18px; border-radius: var(--radius);
+      border: 2px solid; box-shadow: 3px 3px 0 var(--shadow);
+    }
+    .stat-card.green { background: var(--green-bg); border-color: var(--green-border); }
+    .stat-card.blue  { background: var(--blue-bg);  border-color: var(--blue-border); }
+    .stat-num { font-size: 28px; font-weight: 700; line-height: 1; }
+    .stat-card.green .stat-num { color: var(--green); }
+    .stat-card.blue  .stat-num { color: var(--blue); }
+    .stat-label { font-size: 11px; font-weight: 700; color: var(--ink2); text-transform: uppercase; letter-spacing: .6px; }
+    .stat-sub   { font-size: 10px; color: var(--ink3); margin-top: 1px; }
+
+    /* STOCK */
+    .stock-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .stock-title { font-family: 'Architects Daughter', cursive; font-size: 13px; color: var(--ink2); }
+    .stock-badge {
+      padding: 5px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; border: 2px solid;
+      font-family: 'DM Mono', monospace;
+    }
+    .stock-badge.tablet { background: #f0eaff; border-color: #c9b5f0; color: #5b35b0; }
+    .stock-badge.prata  { background: var(--blue-bg); border-color: var(--blue-border); color: var(--blue); }
+    .stock-badge.preto  { background: #f0ede8; border-color: #c8bfa8; color: #4a3f2e; }
+    .stock-badge.esgotado { background: var(--red-bg)!important; border-color: var(--red-border)!important; color: var(--red)!important; }
+    .stock-zero { font-weight: 900; color: var(--red); }
+
+    /* LEGENDA */
+    .legend-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .legend-title { font-family: 'Architects Daughter', cursive; font-size: 13px; color: var(--ink2); }
+    .badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; border: 2px solid; }
+    .badge.livre     { background: var(--green-bg);  border-color: var(--green-border);  color: var(--green); }
+    .badge.reservado { background: var(--blue-bg);   border-color: var(--blue-border);   color: var(--blue); }
+    .badge.bloqueado { background: var(--red-bg);    border-color: var(--red-border);    color: var(--red); }
+    .badge.intervalo { background: var(--orange-bg); border-color: var(--orange-border); color: var(--orange); }
+    .badge.expirado  { background: var(--gray-bg);   border-color: var(--border);        color: var(--gray-text); }
+
+    /* LOADING */
+    .loading-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 0; gap: 14px; }
+    .pencil-loader { font-size: 38px; animation: bounce .8s ease-in-out infinite alternate; }
+    @keyframes bounce {
+      from { transform: translateY(0) rotate(-10deg); }
+      to   { transform: translateY(-14px) rotate(10deg); }
+    }
+    .loading-text { font-family: 'Architects Daughter', cursive; font-size: 15px; color: var(--ink2); }
+
+    /* TABELA */
+    .table-wrap {
+      background: var(--paper); border-radius: 16px;
+      border: 2px solid var(--border); box-shadow: 4px 4px 0 var(--shadow);
+      overflow-x: auto;
+    }
+    table { width: 100%; border-collapse: collapse; }
+
+    thead tr { background: var(--hdr); }
+    th {
+      padding: 16px 20px; text-align: left;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; color: var(--hdr-text);
+      font-weight: 600; white-space: nowrap;
+    }
+    th:first-child { border-radius: 14px 0 0 0; font-family: 'Architects Daughter', cursive; font-size: 14px; }
+    th:last-child  { border-radius: 0 14px 0 0; }
+
+    th.dia-header { cursor: pointer; transition: background .15s; }
+    th.dia-header:hover { background: #2e4a30; }
+
+    .th-dia-nome { display: block; font-size: 16px; font-weight: 800; color: #ffffff; letter-spacing: .1px; }
+    .th-dia-data { display: block; font-size: 11px; color: rgba(200,232,204,.6); margin-top: 2px; font-family: 'DM Mono', monospace; }
+
+    td {
+      padding: 11px 18px; font-size: 13px; font-weight: 600;
+      border-bottom: 1px solid #ede5d5; white-space: nowrap;
+      transition: background .12s;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqueado) { background: #fef9ec; }
+
+    td.label-col {
+      font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 600;
+      color: var(--ink); background: #f7f2e8;
+      border-right: 2px solid var(--border); cursor: default; min-width: 150px;
+    }
+
+    td.livre { color: var(--green); font-weight: 700; cursor: pointer; }
+    td.livre:hover { background: var(--green-bg)!important; }
+    td.reservado  { cursor: default; }
+    td.bloqueado  { color: var(--red); cursor: not-allowed; font-weight: 700; }
+
+    td.intervalo-cell {
+      background: var(--orange-bg)!important; color: var(--orange);
+      font-weight: 700; cursor: not-allowed;
+      font-family: 'DM Mono', monospace; font-size: 12px;
+    }
+    tbody tr:hover td.intervalo-cell { background: var(--orange-bg)!important; }
+
     td.expirado {
-      background: #f0ede8 !important;
-      color: #a89e8e;
-      cursor: default !important;
+      background: #ede9e0!important; color: var(--gray-text)!important;
+      cursor: default!important; font-style: italic; font-size: 12px;
     }
-    td.expirado::before { content: none !important; }
-    .icon-relogio { font-size: 11px; margin-right: 4px; }
-    .txt-expirado {
-      font-size: 11px;
-      font-weight: 600;
-      color: #a89e8e;
-      font-style: italic;
-    }
-    tbody tr:hover td.expirado { background: #f0ede8 !important; }
+    tbody tr:hover td.expirado { background: #ede9e0!important; }
 
-    /* ==============================
-       LISTA DE HORÁRIOS NO MODAL
-       ============================== */
+    .cell-nome {
+      display: block; font-weight: 800; font-size: 12px; color: var(--blue);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;
+    }
+    .cell-equip {
+      display: block; font-size: 11px; font-weight: 500;
+      color: var(--ink2); margin-top: 1px; font-family: 'DM Mono', monospace;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px;
+    }
+
+    /* OVERLAY + MODAL */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(20,15,5,.52); backdrop-filter: blur(4px);
+      z-index: 100; align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; }
+
+    .modal {
+      background: var(--paper); border: 2px solid var(--border);
+      border-radius: 20px; padding: 28px; width: 100%; max-width: 480px;
+      max-height: 92vh; overflow-y: auto; position: relative;
+      animation: popIn .22s cubic-bezier(.34,1.56,.64,1);
+      box-shadow: 6px 6px 0 rgba(60,40,10,.18), 0 24px 60px rgba(0,0,0,.22);
+    }
+    .modal::before {
+      content: ''; position: absolute; left: 54px; top: 0; bottom: 0;
+      width: 2px; background: var(--margin-line); pointer-events: none; border-radius: 2px;
+    }
+    @keyframes popIn {
+      from { opacity: 0; transform: scale(.92) translateY(10px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .modal-close {
+      position: absolute; top: 14px; right: 16px;
+      background: none; border: none; font-size: 22px;
+      color: var(--ink2); cursor: pointer; line-height: 1;
+    }
+    .modal-close:hover { color: var(--red); }
+
+    .modal-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .modal-emoji  { font-size: 28px; }
+    .modal h2     { font-family: 'Architects Daughter', cursive; font-size: 18px; color: var(--ink); }
+    .modal-sub    { font-size: 11px; color: var(--ink2); font-weight: 600; margin-top: 2px; }
+
+    .input-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+    .input-group label {
+      font-size: 11px; font-weight: 800; color: var(--ink2);
+      text-transform: uppercase; letter-spacing: .7px;
+    }
+    .input-group input {
+      background: #fffdf7; border: 2px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 13px;
+      color: var(--ink); font-family: 'DM Sans', sans-serif;
+      font-size: 14px; font-weight: 600; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .input-group input:focus { border-color: #4a90d9; box-shadow: 0 0 0 3px rgba(74,144,217,.15); }
+
+    /* LISTA HORÁRIOS */
+    .section-label {
+      font-size: 11px; font-weight: 800; color: var(--ink2);
+      text-transform: uppercase; letter-spacing: .7px; margin-bottom: 7px;
+    }
+
     #horarios-lista {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      max-height: 240px;
-      overflow-y: auto;
-      margin-bottom: 14px;
-      padding-right: 4px;
+      display: flex; flex-direction: column; gap: 5px;
+      max-height: 210px; overflow-y: auto; margin-bottom: 8px; padding-right: 3px;
     }
-
-    /* scrollbar fina */
     #horarios-lista::-webkit-scrollbar { width: 4px; }
-    #horarios-lista::-webkit-scrollbar-track { background: transparent; }
-    #horarios-lista::-webkit-scrollbar-thumb { background: #d6c9b0; border-radius: 4px; }
+    #horarios-lista::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
     .horario-btn {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 9px 12px;
-      border-radius: 8px;
-      border: 2px solid var(--border);
-      background: #fffdf7;
-      font-family: 'Nunito', sans-serif;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.13s;
-      text-align: left;
-      width: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; border-radius: var(--radius-sm);
+      border: 2px solid var(--border); background: #fffdf7;
+      font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 700;
+      cursor: pointer; transition: all .12s; width: 100%; text-align: left;
     }
+    .horario-btn:hover:not(:disabled) { background: var(--green-bg); border-color: var(--green-border); transform: translateX(3px); }
+    .horario-btn.selecionado { background: var(--green-bg); border-color: var(--green-border); color: var(--green); box-shadow: 2px 2px 0 var(--green-border); }
+    .horario-btn.selecionado::after { content: '✔'; color: var(--green); font-size: 12px; }
+    .horario-btn.passado     { background: #ede9e0; border-color: var(--border); color: var(--gray-text); cursor: not-allowed; opacity: .7; }
+    .horario-btn.intervalo-slot { background: var(--orange-bg); border-color: var(--orange-border); color: var(--orange); cursor: not-allowed; }
+    .horario-btn.bloqueado-slot { background: var(--red-bg); border-color: var(--red-border); color: var(--red); cursor: not-allowed; opacity: .75; }
+    .horario-btn.ocupado-slot   { background: var(--blue-bg); border-color: var(--blue-border); color: var(--blue); cursor: not-allowed; }
 
-    .horario-btn:hover:not(:disabled) {
-      background: #eaf7ee;
-      border-color: var(--green-border);
-      transform: translateX(3px);
-    }
-
-    .horario-btn.selecionado {
-      background: var(--green-bg);
-      border-color: var(--green-border);
-      color: var(--green);
-      box-shadow: 2px 2px 0 var(--green-border);
-    }
-
-    .horario-btn.selecionado::after {
-      content: '✔';
-      font-size: 13px;
-      color: var(--green);
-    }
-
-    .horario-btn.passado {
-      background: #f0ede8;
-      border-color: #d6c9b0;
-      color: #a89e8e;
-      cursor: not-allowed;
-      opacity: 0.7;
-    }
-
-    .horario-btn.bloqueado-slot {
-      background: var(--red-bg);
-      border-color: var(--red-border);
-      color: var(--red);
-      cursor: not-allowed;
-      opacity: 0.75;
-    }
-
-    .horario-btn.ocupado-slot {
-      background: var(--blue-bg);
-      border-color: var(--blue-border);
-      color: var(--blue);
-      cursor: not-allowed;
-    }
-
-    .h-hora   { font-size: 12px; font-weight: 800; }
-    .h-status { font-size: 11px; font-weight: 600; color: var(--ink-light); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    .horario-btn.selecionado .h-status,
-    .horario-btn.selecionado .h-hora { color: var(--green); }
-    .horario-btn.ocupado-slot .h-status { color: var(--blue); }
+    .h-hora   { font-size: 12px; font-weight: 800; font-family: 'DM Mono', monospace; }
+    .h-status { font-size: 11px; font-weight: 600; color: var(--ink2); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .horario-btn.selecionado .h-hora,
+    .horario-btn.selecionado .h-status { color: var(--green); }
+    .horario-btn.ocupado-slot .h-status   { color: var(--blue); }
     .horario-btn.bloqueado-slot .h-status { color: var(--red); }
+    .horario-btn.intervalo-slot .h-status { color: var(--orange); }
 
-    /* ==============================
-       RESUMO DE SELEÇÃO
-       ============================== */
     #resumo-selecao {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--green);
-      background: var(--green-bg);
-      border: 1.5px solid var(--green-border);
-      border-radius: 8px;
-      padding: 5px 10px;
-      margin-bottom: 12px;
-      text-align: center;
+      font-size: 11px; font-weight: 700; color: var(--green);
+      background: var(--green-bg); border: 1.5px solid var(--green-border);
+      border-radius: var(--radius-sm); padding: 5px 10px; margin-bottom: 14px; text-align: center;
     }
 
-    /* ==============================
-       MODAL MAIS LARGO para acomodar lista
-       ============================== */
-    .modal {
-      max-width: 460px !important;
+    /* MULTI-EQUIPAMENTO */
+    .equip-rows { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+    .equip-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: var(--radius-sm);
+      border: 2px solid var(--border); background: #fffdf7;
+      transition: border-color .15s, background .15s;
     }
+    .equip-row.ativo.tablet { background: #f0eaff; border-color: #c9b5f0; }
+    .equip-row.ativo.prata  { background: var(--blue-bg); border-color: var(--blue-border); }
+    .equip-row.ativo.preto  { background: #f0ede8; border-color: #c8bfa8; }
+    .equip-row.sem-estoque  { opacity: .45; pointer-events: none; }
 
-    /* ==============================
-       CABEÇALHO TH clicável
-       ============================== */
-    thead th:not(:first-child) {
-      cursor: pointer;
-      transition: background 0.15s;
+    .equip-row-check {
+      width: 22px; height: 22px; border-radius: 5px;
+      border: 2px solid var(--border); background: var(--paper);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all .13s; font-size: 13px;
     }
-    thead th:not(:first-child):hover {
-      background: #3a6040;
-    }
+    .equip-row.ativo .equip-row-check { background: var(--hdr); border-color: var(--hdr); color: #d4f0d8; }
 
-    /* ==============================
-       LEGENDA — expirado
-       ============================== */
-    .badge.expirado {
-      background: #f0ede8;
-      border-color: #c8bfa8;
-      color: #7a6e60;
+    .equip-row-emoji { font-size: 20px; flex-shrink: 0; }
+    .equip-row-info  { flex: 1; }
+    .equip-row-name  { font-size: 13px; font-weight: 800; color: var(--ink); }
+    .equip-row-disp  { font-size: 11px; color: var(--ink2); font-family: 'DM Mono', monospace; }
+
+    .equip-row-qty { display: flex; align-items: center; gap: 6px; }
+    .qty-btn {
+      width: 26px; height: 26px; border-radius: 6px;
+      border: 2px solid var(--border); background: var(--paper);
+      font-size: 16px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ink); transition: all .12s; line-height: 1;
     }
+    .qty-btn:hover { background: #f0ede8; border-color: #c8bfa8; }
+    .qty-num { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 700; min-width: 22px; text-align: center; }
+
+    /* BTN */
+    .btn-primary {
+      width: 100%; padding: 13px;
+      background: var(--hdr); color: var(--hdr-text);
+      border: none; border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 800;
+      cursor: pointer; box-shadow: 3px 3px 0 #0a140c;
+      transition: all .15s; margin-top: 4px;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 3px 5px 0 #0a140c; }
+    .btn-primary:active { transform: translateY(0); box-shadow: 1px 1px 0 #0a140c; }
+    .btn-primary:disabled { opacity: .6; cursor: wait; }
+
+    .error-msg { font-size: 12px; font-weight: 700; color: var(--red); text-align: center; margin-top: 8px; min-height: 16px; }
+
+    /* TOAST */
+    .toast {
+      position: fixed; bottom: 26px; right: 26px;
+      background: var(--paper); border: 2px solid var(--border);
+      border-radius: var(--radius); padding: 12px 18px;
+      font-size: 13px; font-weight: 700; z-index: 200;
+      transform: translateY(80px); opacity: 0;
+      transition: all .35s cubic-bezier(.34,1.56,.64,1);
+      box-shadow: 4px 4px 0 var(--shadow);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success     { border-color: var(--green-border); color: var(--green); background: var(--green-bg); }
+    .toast.error-toast { border-color: var(--red-border);   color: var(--red);   background: var(--red-bg); }
   </style>
 </head>
 <body>
 
-  <div class="notebook-lines"></div>
-
-  <div class="page-wrap">
-
-    <header>
-      <div class="header-top">
-        <div class="logo-area">
-          <div class="chalkboard-icon">💻</div>
-          <div>
-            <h1>Agendamento de Notebooks</h1>
-            <p class="school-sub">📚 Sistema de Reservas — Laboratório de Informática</p>
-          </div>
+<div class="page-wrap">
+  <header>
+    <div class="header-top">
+      <div class="logo-area">
+        <div class="logo-icon">💻</div>
+        <div>
+          <h1>Agendamento de Notebooks</h1>
+          <p class="school-sub">📚 Sistema de Reservas — Laboratório de Informática</p>
         </div>
+      </div>
+      <div class="header-actions">
+        <div class="cal-wrap" id="mini-cal"></div>
         <button class="refresh-btn" onclick="carregarAgenda()">↺ Atualizar</button>
       </div>
-
-      <div class="stats-row">
-        <div class="stat-card green">
-          <span class="stat-num" id="count-livre">—</span>
-          <span class="stat-label">✏️ Livres</span>
-        </div>
-        <div class="stat-card blue">
-          <span class="stat-num" id="count-reservado">—</span>
-          <span class="stat-label">📌 Reservados</span>
-        </div>
-      </div>
-
-      <div class="stock-row">
-        <span class="stock-title">Estoque hoje:</span>
-        <span class="stock-badge tablet" id="stock-tablet">📱 carregando...</span>
-        <span class="stock-badge prata"  id="stock-prata">💻 carregando...</span>
-        <span class="stock-badge preto"  id="stock-preto">🖥️ carregando...</span>
-      </div>
-
-      <div class="legend-row">
-        <span class="legend-title">Legenda:</span>
-        <span class="badge livre">● Livre</span>
-        <span class="badge reservado">◆ Reservado</span>
-        <span class="badge bloqueado">■ Bloqueado</span>
-        <span class="badge expirado">🕐 Passado</span>
-      </div>
-    </header>
-
-    <main>
-      <div id="loading" class="loading-wrap">
-        <div class="pencil-loader">✏️</div>
-        <p class="loading-text">Carregando agenda...</p>
-      </div>
-
-      <div class="table-wrap" id="table-container" style="display:none">
-        <table id="tabela"></table>
-      </div>
-    </main>
-
-  </div>
-
-  <!-- Modal de reserva por DIA -->
-  <div class="overlay" id="overlay">
-    <div class="modal">
-      <button class="modal-close" onclick="fecharModal()">×</button>
-      <div class="modal-header">
-        <span class="modal-emoji">📅</span>
-        <div>
-          <h2 id="modal-title">Reservar</h2>
-          <p class="modal-sub" id="modal-sub">Selecione os horários e equipamento</p>
-        </div>
-      </div>
-
-      <div id="acao-area">
-
-        <!-- Nome do professor -->
-        <div class="input-group">
-          <label>👤 Nome do professor(a)</label>
-          <input type="text" id="nome-input" placeholder="Nome completo..."
-            onkeydown="if(event.key==='Enter') document.getElementById('qtd-input').focus()">
-        </div>
-
-        <!-- Lista de horários do dia -->
-        <div class="input-group">
-          <label>⏰ Horários — clique para selecionar</label>
-          <div id="horarios-lista">
-            <!-- preenchido dinamicamente -->
-          </div>
-          <div id="resumo-selecao">Nenhum horário selecionado</div>
-        </div>
-
-        <!-- Equipamento -->
-        <div class="input-group">
-          <label>🎒 Tipo de equipamento</label>
-          <div class="equip-grid">
-            <button class="equip-btn tablet" onclick="selecionarEquip('tablet', this)">
-              <span class="equip-emoji">📱</span>
-              <span class="equip-name">Tablet</span>
-              <span class="equip-max">carregando...</span>
-            </button>
-            <button class="equip-btn prata" onclick="selecionarEquip('prata', this)">
-              <span class="equip-emoji">💻</span>
-              <span class="equip-name">Note prata</span>
-              <span class="equip-max">carregando...</span>
-            </button>
-            <button class="equip-btn preto" onclick="selecionarEquip('preto', this)">
-              <span class="equip-emoji">🖥️</span>
-              <span class="equip-name">Note preto</span>
-              <span class="equip-max">carregando...</span>
-            </button>
-          </div>
-          <p class="error-msg" id="equip-error" style="text-align:left; margin-top:4px"></p>
-        </div>
-
-        <!-- Quantidade -->
-        <div class="input-group">
-          <label id="qtd-label">Quantidade</label>
-          <input type="number" id="qtd-input" min="1" max="23" value="1"
-            style="width: 120px"
-            onkeydown="if(event.key==='Enter') confirmarAcao()">
-        </div>
-
-        <button class="btn-primary" id="confirm-btn" onclick="confirmarAcao()" style="margin-top:4px">
-          ✔ Confirmar Reserva
-        </button>
-      </div>
-
-      <p class="error-msg" id="error-msg"></p>
     </div>
+
+    <div class="stats-row">
+      <div class="stat-card green">
+        <span class="stat-num" id="count-livre">—</span>
+        <div>
+          <div class="stat-label">Livres</div>
+          <div class="stat-sub">esta semana</div>
+        </div>
+      </div>
+      <div class="stat-card blue">
+        <span class="stat-num" id="count-reservado">—</span>
+        <div>
+          <div class="stat-label">Reservados</div>
+          <div class="stat-sub">esta semana</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stock-row">
+      <span class="stock-title">Estoque hoje:</span>
+      <span class="stock-badge tablet" id="stock-tablet">📱 carregando...</span>
+      <span class="stock-badge prata"  id="stock-prata">💻 carregando...</span>
+      <span class="stock-badge preto"  id="stock-preto">🖥️ carregando...</span>
+    </div>
+
+    <div class="legend-row">
+      <span class="legend-title">Legenda:</span>
+      <span class="badge livre">Livre</span>
+      <span class="badge reservado">Reservado</span>
+      <span class="badge bloqueado">Bloqueado</span>
+      <span class="badge intervalo">☕ Intervalo</span>
+      <span class="badge expirado">🕐 Passado</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="loading" class="loading-wrap">
+      <div class="pencil-loader">✏️</div>
+      <p class="loading-text">Carregando agenda...</p>
+    </div>
+    <div class="table-wrap" id="table-container" style="display:none">
+      <table id="tabela"></table>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModal()">×</button>
+    <div class="modal-header">
+      <span class="modal-emoji">📅</span>
+      <div>
+        <h2 id="modal-title">Reservar</h2>
+        <p class="modal-sub" id="modal-sub">Selecione horários e equipamentos</p>
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>👤 Nome do professor(a)</label>
+      <input type="text" id="nome-input" placeholder="Nome completo...">
+    </div>
+
+    <div class="section-label">⏰ Horários — toque para selecionar</div>
+    <div id="horarios-lista"></div>
+    <div id="resumo-selecao">Nenhum horário selecionado</div>
+
+    <div class="section-label">🎒 Equipamentos — selecione um ou mais</div>
+    <div class="equip-rows" id="equip-rows"></div>
+
+    <p class="error-msg" id="error-msg"></p>
+    <button class="btn-primary" id="confirm-btn" onclick="confirmarAcao()">✔ Confirmar Reserva</button>
   </div>
+</div>
 
-  <div class="toast" id="toast"></div>
+<div class="toast" id="toast"></div>
 
-  <script src="script.js"></script>
+<script>
+const API = "https://backend-reserva-n8ru.onrender.com";
+
+const ESTOQUE = {
+  tablet: { label: "tablet",         total: 12, emoji: "📱", nome: "Tablet" },
+  prata:  { label: "notebook prata", total: 23, emoji: "💻", nome: "Note Prata" },
+  preto:  { label: "notebook preto", total: 11, emoji: "🖥️", nome: "Note Preto" },
+};
+
+// Linhas que são intervalos (1-based, índice da planilha)
+const LINHAS_INTERVALO = new Set([5, 8, 12]);
+
+const HORARIOS = {
+  2:  ["07:00","07:50"],
+  3:  ["07:50","08:40"],
+  4:  ["08:40","09:30"],
+  5:  ["09:30","09:50"],
+  6:  ["09:50","10:40"],
+  7:  ["10:40","11:30"],
+  8:  ["11:30","12:30"],
+  9:  ["12:30","13:20"],
+  10: ["13:20","14:10"],
+  11: ["14:10","15:00"],
+  12: ["15:00","15:20"],
+  13: ["15:20","16:10"],
+  14: ["16:10","17:00"],
+  15: ["17:00","17:50"],
+};
+
+let dadosGlobais = [];
+let modalDiaColuna = null;
+let modalDiaNome = "";
+let horariosSelecionados = [];
+let equipState = resetEquipState();
+
+function resetEquipState() {
+  return { tablet:{ativo:false,qtd:1}, prata:{ativo:false,qtd:1}, preto:{ativo:false,qtd:1} };
+}
+
+// ─── TEMPO ────────────────────────────────────────────────────
+function agora() { const d = new Date(); return d.getHours()*60+d.getMinutes(); }
+function paraMin(hhmm) { const [h,m]=hhmm.split(":").map(Number); return h*60+m; }
+function diaSemana() { return new Date().getDay(); }
+function colParaDia(col) { return col-1; }
+
+function ePassadoHoje(coluna, linhaNum) {
+  if (colParaDia(coluna) !== diaSemana()) return false;
+  const h = HORARIOS[linhaNum];
+  return h ? agora() >= paraMin(h[1]) : false;
+}
+
+// ─── CALENDÁRIO ───────────────────────────────────────────────
+function renderCalendario() {
+  const cal = document.getElementById("mini-cal");
+  if (!cal) return;
+  const hoje = new Date();
+  const diaSem = hoje.getDay();
+  const dias = ["Seg","Ter","Qua","Qui","Sex"];
+  cal.innerHTML = "";
+  for (let d = 1; d <= 5; d++) {
+    const dt = new Date(hoje);
+    dt.setDate(hoje.getDate() + (d - diaSem));
+    const div = document.createElement("div");
+    div.className = "cal-day";
+    if (dt.toDateString() === hoje.toDateString()) div.classList.add("hoje");
+    const col = d + 1;
+    const temRes = dadosGlobais.some((row, ri) => ri>0 && (row[col-1]||"").includes("|"));
+    if (temRes) div.classList.add("tem-reserva");
+    div.innerHTML = `<span class="cal-day-name">${dias[d-1]}</span><span class="cal-day-num">${dt.getDate()}</span>`;
+    div.title = `${dias[d-1]} ${dt.getDate()}/${dt.getMonth()+1}`;
+    div.onclick = () => {
+      if (!dadosGlobais.length) return;
+      const cab = dadosGlobais[0]||[];
+      abrirModalDia(col, cab[col-1]||dias[d-1], dadosGlobais);
+    };
+    cal.appendChild(div);
+  }
+}
+
+// ─── RESET / LIMPEZA ──────────────────────────────────────────
+async function resetarPassadosHoje(dados) {
+  const hoje = diaSemana();
+  const col  = hoje + 1;
+  if (col < 2 || col > 6) return;
+  for (const [ls,[,fim]] of Object.entries(HORARIOS)) {
+    const ln = parseInt(ls);
+    if (agora() < paraMin(fim)) continue;
+    const ld = dados[ln-1]; if (!ld) continue;
+    const v  = (ld[col-1]||"").trim().toUpperCase();
+    if (v && v!=="LIVRE" && v!=="BLOQUEADO") {
+      try {
+        await fetch(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({linha:ln,coluna:col,valor:"LIVRE"})});
+      } catch(e){}
+    }
+  }
+}
+
+async function limpezaSexta(dados) {
+  const d = new Date();
+  if (d.getDay()!==5 || d.getHours()<18) return;
+  const k = `limpeza_${d.toDateString()}`;
+  if (localStorage.getItem(k)) return;
+  for (let ln=2;ln<=15;ln++){
+    const ld=dados[ln-1];if(!ld)continue;
+    for(let col=2;col<=6;col++){
+      const v=(ld[col-1]||"").trim().toUpperCase();
+      if(v&&v!=="LIVRE"&&v!=="BLOQUEADO"){
+        try{await fetch(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({linha:ln,coluna:col,valor:"LIVRE"})});}catch(e){}
+      }
+    }
+  }
+  localStorage.setItem(k,"1");
+}
+
+// ─── ESTOQUE ──────────────────────────────────────────────────
+function extrairReserva(valor) {
+  if (!valor) return null;
+  const v = valor.trim().toUpperCase();
+  if (!v || v==="LIVRE" || v==="BLOQUEADO") return null;
+  const partes = valor.split("|");
+  if (partes.length < 2) return null;
+  const res = {tablet:0, prata:0, preto:0};
+  partes[1].split("+").forEach(seg => {
+    const m = seg.trim().match(/(\d+)\s*(tablet|notebook prata|notebook preto)/i);
+    if (m) {
+      const n = m[2].toLowerCase();
+      if (n==="tablet") res.tablet += parseInt(m[1]);
+      else if (n==="notebook prata") res.prata += parseInt(m[1]);
+      else if (n==="notebook preto") res.preto += parseInt(m[1]);
+    }
+  });
+  return res;
+}
+
+function disponivelDia(coluna, dados) {
+  const uso = {tablet:0, prata:0, preto:0};
+  for (let ln=2;ln<=15;ln++){
+    const ld=dados[ln-1]; if(!ld) continue;
+    if(ePassadoHoje(coluna,ln)) continue;
+    const r=extrairReserva(ld[coluna-1]);
+    if(r){uso.tablet+=r.tablet; uso.prata+=r.prata; uso.preto+=r.preto;}
+  }
+  return {tablet:ESTOQUE.tablet.total-uso.tablet, prata:ESTOQUE.prata.total-uso.prata, preto:ESTOQUE.preto.total-uso.preto};
+}
+
+// ─── CARREGAR ─────────────────────────────────────────────────
+async function carregarAgenda() {
+  document.getElementById("loading").style.display = "flex";
+  document.getElementById("table-container").style.display = "none";
+  try {
+    const r1 = await fetch(`${API}/agenda`);
+    const d1 = await r1.json();
+    await limpezaSexta(d1);
+    await resetarPassadosHoje(d1);
+    const r2 = await fetch(`${API}/agenda`);
+    const dados = await r2.json();
+    dadosGlobais = dados;
+    renderCalendario();
+    renderTabela(dados);
+    atualizarStockHeader(dados);
+  } catch(e) {
+    document.getElementById("loading").innerHTML =
+      `<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px">⚠️ Erro ao conectar com o servidor</p>`;
+  }
+}
+
+// ─── STOCK HEADER ─────────────────────────────────────────────
+function atualizarStockHeader(dados) {
+  const hoje = diaSemana();
+  const col  = (hoje>=1&&hoje<=5) ? hoje+1 : null;
+  const disp = col ? disponivelDia(col, dados) : {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
+  Object.keys(ESTOQUE).forEach(tipo => {
+    const badge = document.getElementById(`stock-${tipo}`);
+    if (!badge) return;
+    const {emoji, total} = ESTOQUE[tipo];
+    const pl = tipo==="tablet"?"tablets":ESTOQUE[tipo].label+"s";
+    const d  = disp[tipo];
+    if (d <= 0) {
+      badge.innerHTML = `${emoji} <span class="stock-zero">0/${total} ${pl}</span>`;
+      badge.classList.add("esgotado");
+    } else {
+      badge.innerHTML = `${emoji} ${d}/${total} ${pl}`;
+      badge.classList.remove("esgotado");
+    }
+  });
+}
+
+// ─── RENDER TABELA ────────────────────────────────────────────
+function renderTabela(dados) {
+  const tabela = document.getElementById("tabela");
+  tabela.innerHTML = "";
+  let livre=0, reservado=0;
+  const cab = dados[0]||[];
+  const hoje = new Date();
+
+  dados.forEach((linha, i) => {
+    const tr = document.createElement("tr");
+    const linhaNum = i+1;
+
+    linha.forEach((celula, j) => {
+      const isHdr = i===0, isLbl = j===0;
+      const coluna = j+1;
+      const td = document.createElement(isHdr?"th":"td");
+
+      if (isHdr) {
+        if (j===0) {
+          td.innerText = celula;
+        } else {
+          td.className = "dia-header";
+          const diaSem = hoje.getDay();
+          const dt = new Date(hoje);
+          dt.setDate(hoje.getDate() + (coluna-1-diaSem));
+          const dataStr = `${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")}`;
+          const isHoje  = colParaDia(coluna)===diaSem;
+          td.innerHTML  = `<span class="th-dia-nome">${celula}</span><span class="th-dia-data">${dataStr}${isHoje?" · hoje":""}</span>`;
+          td.onclick = () => abrirModalDia(coluna, celula, dados);
+        }
+        tr.appendChild(td); return;
+      }
+
+      if (isLbl) { td.className="label-col"; td.innerText=celula; tr.appendChild(td); return; }
+
+      const passado   = ePassadoHoje(coluna, linhaNum);
+      const intervalo = LINHAS_INTERVALO.has(linhaNum);
+      const val = (celula||"").trim().toUpperCase().replace(/\s+/g," ");
+
+      if (passado) {
+        td.className = "expirado";
+        td.innerHTML = "🕐 Passado";
+
+      } else if (intervalo) {
+        td.className = "intervalo-cell";
+        td.innerText = "☕ Intervalo";
+
+      } else if (val==="BLOQUEADO") {
+        td.className = "bloqueado";
+        td.innerText = "Bloqueado";
+
+      } else if (val==="" || val==="LIVRE") {
+        td.className = "livre";
+        td.innerText = "Livre";
+        livre++;
+        td.onclick = () => abrirModalDia(coluna, cab[j]||"", dados, linhaNum);
+
+      } else if (val.includes("|")) {
+        td.className = "reservado";
+        td.innerHTML = formatarReservado(celula);
+        reservado++;
+
+      } else {
+        td.className = "livre";
+        td.innerText = "Livre";
+        livre++;
+        td.onclick = () => abrirModalDia(coluna, cab[j]||"", dados, linhaNum);
+      }
+
+      tr.appendChild(td);
+    });
+    tabela.appendChild(tr);
+  });
+
+  document.getElementById("count-livre").textContent    = livre;
+  document.getElementById("count-reservado").textContent = reservado;
+  document.getElementById("loading").style.display       = "none";
+  document.getElementById("table-container").style.display = "block";
+}
+
+function formatarReservado(valor) {
+  const p = valor.split("|");
+  if (p.length<2) return `<span>${valor}</span>`;
+  return `<span class="cell-nome">${p[0].trim()}</span><span class="cell-equip">${p[1].trim()}</span>`;
+}
+
+// ─── MODAL ────────────────────────────────────────────────────
+function abrirModalDia(coluna, diaNome, dados, linhaPreSel=null) {
+  modalDiaColuna = coluna;
+  modalDiaNome   = diaNome;
+  horariosSelecionados = linhaPreSel ? [linhaPreSel] : [];
+  equipState = resetEquipState();
+
+  document.getElementById("modal-title").textContent = `📅 ${diaNome}`;
+  document.getElementById("modal-sub").textContent   = "Selecione horários e equipamentos";
+  document.getElementById("nome-input").value        = "";
+  document.getElementById("error-msg").textContent   = "";
+
+  renderHorariosBtns(coluna, dados, linhaPreSel);
+  renderEquipRows(coluna, dados);
+
+  document.getElementById("overlay").classList.add("open");
+  setTimeout(() => document.getElementById("nome-input").focus(), 100);
+}
+
+function renderHorariosBtns(coluna, dados, linhaPreSel) {
+  const c = document.getElementById("horarios-lista");
+  c.innerHTML = "";
+  for (let ln=2;ln<=15;ln++){
+    const ld=dados[ln-1]; if(!ld) continue;
+    const h=HORARIOS[ln]; if(!h) continue;
+    const val=(ld[coluna-1]||"").trim().toUpperCase().replace(/\s+/g," ");
+    const passado   = ePassadoHoje(coluna,ln);
+    const intervalo = LINHAS_INTERVALO.has(ln);
+    const bloqueado = val==="BLOQUEADO"&&!intervalo;
+    const reservado = val.includes("|");
+
+    const btn = document.createElement("button");
+    btn.className = "horario-btn";
+
+    if (passado) {
+      btn.classList.add("passado");
+      btn.innerHTML=`<span class="h-hora">🕐 ${h[0]}–${h[1]}</span><span class="h-status">passado</span>`;
+      btn.disabled=true;
+    } else if (intervalo) {
+      btn.classList.add("intervalo-slot");
+      btn.innerHTML=`<span class="h-hora">☕ ${h[0]}–${h[1]}</span><span class="h-status">intervalo</span>`;
+      btn.disabled=true;
+    } else if (bloqueado) {
+      btn.classList.add("bloqueado-slot");
+      btn.innerHTML=`<span class="h-hora">${h[0]}–${h[1]}</span><span class="h-status">bloqueado</span>`;
+      btn.disabled=true;
+    } else if (reservado) {
+      const nome=(ld[coluna-1]||"").split("|")[0].trim();
+      btn.classList.add("ocupado-slot");
+      btn.innerHTML=`<span class="h-hora">${h[0]}–${h[1]}</span><span class="h-status">${nome}</span>`;
+      btn.disabled=true;
+    } else {
+      btn.innerHTML=`<span class="h-hora">${h[0]}–${h[1]}</span><span class="h-status">livre</span>`;
+      if(ln===linhaPreSel) btn.classList.add("selecionado");
+      btn.onclick=()=>toggleHorario(ln,btn);
+    }
+    c.appendChild(btn);
+  }
+  atualizarResumo();
+}
+
+function toggleHorario(ln, btn) {
+  const idx=horariosSelecionados.indexOf(ln);
+  if(idx===-1){horariosSelecionados.push(ln);btn.classList.add("selecionado");}
+  else{horariosSelecionados.splice(idx,1);btn.classList.remove("selecionado");}
+  atualizarResumo();
+}
+
+function atualizarResumo() {
+  const n=horariosSelecionados.length;
+  document.getElementById("resumo-selecao").textContent =
+    n===0?"Nenhum horário selecionado":`${n} horário${n>1?"s":""} selecionado${n>1?"s":""}`;
+}
+
+// ─── EQUIP ROWS ───────────────────────────────────────────────
+function renderEquipRows(coluna, dados) {
+  const c=document.getElementById("equip-rows");
+  c.innerHTML="";
+  const disp=disponivelDia(coluna, dados);
+  Object.keys(ESTOQUE).forEach(tipo=>{
+    const {emoji,nome,label}=ESTOQUE[tipo];
+    const d=disp[tipo];
+    const row=document.createElement("div");
+    row.className=`equip-row ${tipo}`;
+    row.id=`equip-row-${tipo}`;
+    if(d<=0) row.classList.add("sem-estoque");
+    row.innerHTML=`
+      <div class="equip-row-check" id="check-${tipo}" onclick="toggleEquip('${tipo}')"></div>
+      <span class="equip-row-emoji">${emoji}</span>
+      <div class="equip-row-info">
+        <div class="equip-row-name">${nome}</div>
+        <div class="equip-row-disp">${d>0?`${d} disponíveis`:"esgotado neste dia"}</div>
+      </div>
+      <div class="equip-row-qty" id="qty-wrap-${tipo}" style="display:none">
+        <button class="qty-btn" onclick="mudaQtd('${tipo}',-1)">−</button>
+        <span class="qty-num" id="qty-num-${tipo}">1</span>
+        <button class="qty-btn" onclick="mudaQtd('${tipo}',+1)">+</button>
+      </div>`;
+    c.appendChild(row);
+  });
+}
+
+function toggleEquip(tipo) {
+  if(document.getElementById(`equip-row-${tipo}`).classList.contains("sem-estoque")) return;
+  const disp=disponivelDia(modalDiaColuna, dadosGlobais);
+  equipState[tipo].ativo=!equipState[tipo].ativo;
+  const row=document.getElementById(`equip-row-${tipo}`);
+  const check=document.getElementById(`check-${tipo}`);
+  const qw=document.getElementById(`qty-wrap-${tipo}`);
+  if(equipState[tipo].ativo){
+    row.classList.add("ativo"); check.textContent="✔"; qw.style.display="flex";
+    if(equipState[tipo].qtd>disp[tipo]) equipState[tipo].qtd=disp[tipo];
+    document.getElementById(`qty-num-${tipo}`).textContent=equipState[tipo].qtd;
+  } else {
+    row.classList.remove("ativo"); check.textContent=""; qw.style.display="none";
+  }
+}
+
+function mudaQtd(tipo, delta) {
+  const disp=disponivelDia(modalDiaColuna, dadosGlobais);
+  let v=Math.max(1,Math.min(disp[tipo], equipState[tipo].qtd+delta));
+  equipState[tipo].qtd=v;
+  document.getElementById(`qty-num-${tipo}`).textContent=v;
+}
+
+// ─── CONFIRMAR ────────────────────────────────────────────────
+async function confirmarAcao() {
+  const nome=document.getElementById("nome-input").value.trim();
+  const err=document.getElementById("error-msg");
+  err.textContent="";
+
+  if(!nome){err.textContent="✏️ Digite o nome do professor.";return;}
+  if(horariosSelecionados.length===0){err.textContent="⏰ Selecione ao menos um horário.";return;}
+  const sel=Object.keys(equipState).filter(t=>equipState[t].ativo);
+  if(sel.length===0){err.textContent="🎒 Selecione ao menos um equipamento.";return;}
+
+  const equipStr=sel.map(t=>`${equipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
+  const valor=`${nome} | ${equipStr}`;
+
+  const btn=document.getElementById("confirm-btn");
+  btn.textContent="Salvando..."; btn.disabled=true;
+
+  try {
+    for(const ln of horariosSelecionados){
+      await fetch(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({linha:ln,coluna:modalDiaColuna,valor})});
+    }
+    fecharModal();
+    const n=horariosSelecionados.length;
+    showToast(`✔ ${n} horário${n>1?"s":""} reservado${n>1?"s":""}!`,"success");
+    carregarAgenda();
+  } catch(e) {
+    showToast("✗ Erro ao salvar. Tente novamente.","error-toast");
+    btn.textContent="✔ Confirmar Reserva"; btn.disabled=false;
+  }
+}
+
+// ─── FECHAR ───────────────────────────────────────────────────
+function fecharModal() {
+  document.getElementById("overlay").classList.remove("open");
+  horariosSelecionados=[];
+  equipState=resetEquipState();
+}
+document.getElementById("overlay").addEventListener("click",function(e){if(e.target===this)fecharModal();});
+
+// ─── TOAST ────────────────────────────────────────────────────
+function showToast(msg,type){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove("show"),3500);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+renderCalendario();
+carregarAgenda();
+setInterval(carregarAgenda, 60000);
+</script>
 </body>
 </html>
