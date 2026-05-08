@@ -643,8 +643,20 @@ function abrirModalDia(coluna, diaNome, dados, linhaPreSel=null) {
   horariosSelecionados = linhaPreSel ? [linhaPreSel] : [];
   equipState = resetEquip();
 
-  document.getElementById("modal-title").textContent  = `📅 ${diaNome}`;
-  document.getElementById("modal-sub").textContent    = "Selecione horários e equipamentos";
+  // Avisa se o horário pré-selecionado já tem reservas parciais
+  let subtitulo = "Selecione horários e equipamentos";
+  if (linhaPreSel) {
+    const ld = dados[linhaPreSel-1];
+    const celVal = ld ? (ld[coluna-1]||"") : "";
+    if (celVal.includes("|")) {
+      const reservas = listarReservas(celVal);
+      const nomes = reservas.map(r => r.nome).join(", ");
+      subtitulo = "\u26a0\ufe0f J\u00e1 reservado por: " + nomes + " \u2014 escolha o que sobrou";
+    }
+  }
+
+  document.getElementById("modal-title").textContent  = "📅 " + diaNome;
+  document.getElementById("modal-sub").textContent    = subtitulo;
   document.getElementById("nome-input").value         = "";
   document.getElementById("error-msg").textContent    = "";
 
