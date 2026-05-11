@@ -289,7 +289,7 @@ async function resetarPassadosHoje(dados) {
         await fetchComTimeout(`${API}/editar`, {
           method:"POST",
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({linha:ln,coluna:col,valor:"LIVRE"})
+          body:JSON.stringify({linha:ln,coluna:col,valor:""})
         });
       } catch(e) {}
     }
@@ -315,7 +315,7 @@ async function limpezaSexta(dados) {
           fetchComTimeout(`${API}/editar`, {
             method:"POST",
             headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({linha:ln,coluna:col,valor:"LIVRE"})
+            body:JSON.stringify({linha:ln,coluna:col,valor:""})
           }).catch(()=>{})
         );
       }
@@ -353,7 +353,7 @@ function fetchComTimeout(url, opcoes, timeoutMs = 10000) {
 function extrairReserva(valor) {
   if (!valor) return null;
   const v = valor.trim().toUpperCase();
-  if (!v || v==="LIVRE" || v==="BLOQUEADO") return null;
+  if (!v || v==="BLOQUEADO") return null;
   if (!valor.includes("|")) return null;
   const res = {tablet:0, prata:0, preto:0};
   valor.split("§").forEach(bloco => {
@@ -869,7 +869,7 @@ async function confirmarAcao() {
       const ld = dadosGlobais[ln-1];
       const valorAtual = ld ? (ld[modalDiaColuna-1]||"").trim() : "";
       const vUp = valorAtual.toUpperCase();
-      const valorFinal = (!valorAtual || vUp==="LIVRE" || vUp==="BLOQUEADO")
+      const valorFinal = (!valorAtual || vUp==="" || vUp==="BLOQUEADO")
         ? novaReserva
         : `${valorAtual} § ${novaReserva}`;
 

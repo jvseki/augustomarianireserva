@@ -98,53 +98,105 @@ def remover_espera(uid):
         return jsonify({"erro": str(e)}), 500
 
 
+def calcular_uso_celula(cel_valor):
+    """Retorna {tablet, prata, preto} com total em uso na célula."""
+    uso = {"tablet": 0, "prata": 0, "preto": 0}
+    if not cel_valor or not "|" in cel_valor:
+        return uso
+    import re
+    for bloco in cel_valor.split("§"):
+        partes = bloco.split("|")
+        if len(partes) < 2:
+            continue
+        for seg in partes[1].split("+"):
+            m = re.search(r"(\d+)\s*(tablet|notebook prata|notebook preto)", seg.strip(), re.IGNORECASE)
+            if m:
+                qtd = int(m.group(1))
+                tipo = m.group(2).lower()
+                if tipo == "tablet":           uso["tablet"] += qtd
+                elif tipo == "notebook prata": uso["prata"]  += qtd
+                elif tipo == "notebook preto": uso["preto"]  += qtd
+    return uso
+
+def equip_str_para_dict(equip_str):
+    """Converte '23 notebook prata + 5 notebook preto' em {tablet:0, prata:23, preto:5}."""
+    import re
+    res = {"tablet": 0, "prata": 0, "preto": 0}
+    for seg in equip_str.split("+"):
+        m = re.search(r"(\d+)\s*(tablet|notebook prata|notebook preto)", seg.strip(), re.IGNORECASE)
+        if m:
+            qtd = int(m.group(1))
+            tipo = m.group(2).lower()
+            if tipo == "tablet":           res["tablet"] += qtd
+            elif tipo == "notebook prata": res["prata"]  += qtd
+            elif tipo == "notebook preto": res["preto"]  += qtd
+    return res
+
+ESTOQUE_TOTAL = {"tablet": 12, "prata": 23, "preto": 11}
+
 @app.route("/promover", methods=["POST"])
 def promover_espera():
     """
-    Verifica se há alguém na espera para um slot que ficou livre
-    e promove automaticamente o primeiro da fila.
-    Chamado pelo frontend a cada carregarAgenda().
+    Verifica se há espaço suficiente para cada item da lista de espera
+    considerando APENAS os equipamentos pedidos — não exige slot totalmente livre.
+    Ex: Marcos quer 23 pratas → verifica se sobrou 23 pratas, independente
+    de outros equipamentos ainda ocupados pelo Luís.
     """
     try:
         ws = get_espera_sheet()
         registros = ws.get_all_records()
         promovidos = []
 
-        # Lê agenda atual
         agenda_vals = sheet.get_all_values()
 
+        # Processa cada item da espera em ordem (FIFO)
         for reg in registros:
             linha  = int(reg["linha"])
             coluna = int(reg["coluna"])
-            equip  = reg["equipamentos"]   # ex: "23 notebook prata"
+            equip  = reg["equipamentos"]
             nome   = reg["nome"]
             uid    = reg["id"]
 
-            # Valor atual da célula na planilha principal
             try:
                 cel_atual = agenda_vals[linha - 1][coluna - 1]
             except IndexError:
                 continue
 
-            # Calcula quanto ainda cabe
-            from sheets import sheet as sh
-            # Reutiliza lógica: checa se o equip pedido ainda cabe
-            # (verificação simples: se a célula voltou a ter espaço)
             cel_up = (cel_atual or "").strip().upper()
+            if cel_up == "BLOQUEADO":
+                continue  # slot bloqueado manualmente, pula
 
-            # Célula livre → promove direto
-            if cel_up == "" or cel_up == "LIVRE":
+            # Calcula quanto está em uso neste slot
+            uso = calcular_uso_celula(cel_atual)
+
+            # Calcula quanto o professor da espera precisa
+            pedido = equip_str_para_dict(equip)
+
+            # Verifica se cabe (por tipo de equipamento)
+            cabe = all(
+                uso.get(tipo, 0) + pedido.get(tipo, 0) <= ESTOQUE_TOTAL[tipo]
+                for tipo in pedido
+                if pedido[tipo] > 0
+            )
+
+            if not cabe:
+                continue  # ainda não tem espaço suficiente
+
+            # Cabe! Promove
+            if not cel_atual.strip() or cel_up == "":
                 novo_valor = f"{nome} | {equip}"
-            elif "|" in cel_atual:
-                # Tem outras reservas — concatena
-                novo_valor = f"{cel_atual} § {nome} | {equip}"
             else:
-                continue  # ainda ocupado, pula
+                novo_valor = f"{cel_atual} § {nome} | {equip}"
 
-            # Salva na planilha principal
             sheet.update_cell(linha, coluna, novo_valor)
+            # Atualiza cache local para os próximos da fila
+            while len(agenda_vals) < linha:
+                agenda_vals.append([])
+            while len(agenda_vals[linha-1]) < coluna:
+                agenda_vals[linha-1].append("")
+            agenda_vals[linha-1][coluna-1] = novo_valor
 
-            # Remove da lista de espera
+            # Remove da espera
             todos = ws.get_all_values()
             for i, row in enumerate(todos):
                 if row and row[0] == uid:
