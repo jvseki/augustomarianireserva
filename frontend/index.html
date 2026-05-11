@@ -102,6 +102,35 @@
   </div>
 </div>
 
+<!-- BANNER DE PROMOÇÃO -->
+<div class="promo-banner" id="promo-banner" style="display:none">
+  <div class="promo-inner" id="promo-inner"></div>
+  <button class="promo-close" onclick="fecharBanner()">×</button>
+</div>
+
+<!-- MODAL LISTA DE ESPERA -->
+<div class="overlay" id="overlay-espera">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModalEspera()">×</button>
+    <div class="modal-header">
+      <span class="modal-emoji">⏳</span>
+      <div>
+        <h2 id="espera-title">Lista de Espera</h2>
+        <p class="modal-sub" id="espera-sub">Equipamento esgotado neste horário</p>
+      </div>
+    </div>
+    <div class="input-group">
+      <label>👤 Nome do professor(a)</label>
+      <input type="text" id="espera-nome" placeholder="Nome completo..." autocomplete="name" autocorrect="off" autocapitalize="words">
+    </div>
+    <div class="sec-label">🎒 O que você precisa?</div>
+    <div class="equip-rows" id="espera-equip-rows"></div>
+    <div style="background:var(--orange-bg);border:2px solid var(--orange-bd);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--orange);font-weight:700;line-height:1.5">⚠️ Quando o equipamento for liberado, você será promovido automaticamente na próxima atualização do site.</div>
+    <p class="error-msg" id="espera-error"></p>
+    <button class="btn-primary" id="espera-btn" onclick="confirmarEspera()">⏳ Entrar na Lista de Espera</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -426,6 +455,7 @@ async function carregarAgenda() {
     renderTabela(dados);
     renderCards(dados);
     atualizarStockHeader(dados);
+    verificarPromocoes();
   } catch(e) {
     document.getElementById("loading").innerHTML =
       `<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px;text-align:center">⚠️ Erro ao conectar com o servidor</p>`;
@@ -517,8 +547,10 @@ function renderTabela(dados) {
           livre++;
           td.onclick = () => abrirModalDia(coluna, cab[j]||"", dados, linhaNum);
         } else {
-          // Totalmente ocupado
-          td.className="reservado"; td.innerHTML=fmtReservado(celula); reservado++;
+          // Totalmente ocupado — clicável para lista de espera
+          td.className="reservado espera-disponivel"; td.innerHTML=fmtReservado(celula) + '<span class="espera-tag">⏳ lista de espera</span>'; reservado++;
+          td.style.cursor="pointer";
+          td.onclick = () => abrirModalEspera(coluna, linhaNum, dados);
         }
       } else {
         td.className="livre";
@@ -696,11 +728,12 @@ function renderHorariosBtns(coluna, dados, linhaPreSel) {
       btn.classList.add("bloqueado-slot"); btn.disabled=true;
       btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span></div><span class="h-status">bloqueado</span>`;
     } else if (lotado) {
-      // Totalmente ocupado — sem equipamento sobrando
+      // Totalmente ocupado — oferece lista de espera
       const reservas = listarReservas(celVal);
       const nomes = reservas.map(r=>r.nome).join(" + ");
-      btn.classList.add("ocupado-slot"); btn.disabled=true;
-      btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span></div><span class="h-status">${nomes}</span>`;
+      btn.classList.add("ocupado-slot");
+      btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-status">${nomes}</span></div><span style="font-size:10px;color:var(--orange);font-weight:800;white-space:nowrap">⏳ espera</span>`;
+      btn.onclick=()=>abrirModalEspera(coluna, ln, dados);
     } else {
       // Livre ou parcialmente ocupado — pode agendar
       const tag = slotDispTag(coluna, ln, dados);
@@ -882,6 +915,150 @@ function showToast(msg, type){
   const t=document.getElementById("toast");
   t.textContent=msg; t.className=`toast ${type} show`;
   setTimeout(()=>t.classList.remove("show"), 3500);
+}
+
+
+// ════════════════════════════════════════
+// LISTA DE ESPERA
+// ════════════════════════════════════════
+let esperaColuna = null;
+let esperaLinha  = null;
+let esperaEquip  = resetEquip();
+
+function abrirModalEspera(coluna, ln, dados) {
+  esperaColuna = coluna;
+  esperaLinha  = ln;
+  esperaEquip  = resetEquip();
+
+  const h = HORARIOS[ln] || ["?","?"];
+  const cab = dadosGlobais[0] || [];
+  const diaNome = cab[coluna-1] || "";
+
+  document.getElementById("espera-title").textContent = "⏳ Lista de Espera";
+  document.getElementById("espera-sub").textContent   = `${diaNome} · ${h[0]}–${h[1]}`;
+  document.getElementById("espera-nome").value        = "";
+  document.getElementById("espera-error").textContent = "";
+
+  // Mostra todos os equipamentos (sem restrição de disponível —
+  // o professor entra na espera para o que precisar)
+  const c = document.getElementById("espera-equip-rows");
+  c.innerHTML = "";
+  Object.keys(ESTOQUE).forEach(tipo => {
+    const {emoji, nome, total} = ESTOQUE[tipo];
+    const row = document.createElement("div");
+    row.className = `equip-row ${tipo}`;
+    row.id = `espera-row-${tipo}`;
+    row.innerHTML = `
+      <div class="equip-row-check" id="espera-check-${tipo}"></div>
+      <span class="equip-row-emoji">${emoji}</span>
+      <div class="equip-row-info">
+        <div class="equip-row-name">${nome}</div>
+        <div class="equip-row-disp">máx. ${total}</div>
+      </div>
+      <div class="equip-row-qty" id="espera-qty-wrap-${tipo}" style="display:none">
+        <button class="qty-btn" onclick="event.stopPropagation();mudaQtdEspera('${tipo}',-1)">−</button>
+        <span class="qty-num" id="espera-qty-num-${tipo}">1</span>
+        <button class="qty-btn" onclick="event.stopPropagation();mudaQtdEspera('${tipo}',+1)">+</button>
+      </div>`;
+    row.onclick = () => toggleEquipEspera(tipo);
+    c.appendChild(row);
+  });
+
+  document.getElementById("overlay-espera").classList.add("open");
+  setTimeout(() => document.getElementById("espera-nome").focus(), 150);
+}
+
+function toggleEquipEspera(tipo) {
+  esperaEquip[tipo].ativo = !esperaEquip[tipo].ativo;
+  const row   = document.getElementById(`espera-row-${tipo}`);
+  const check = document.getElementById(`espera-check-${tipo}`);
+  const qw    = document.getElementById(`espera-qty-wrap-${tipo}`);
+  if (esperaEquip[tipo].ativo) {
+    row.classList.add("ativo"); check.textContent = "✔"; qw.style.display = "flex";
+  } else {
+    row.classList.remove("ativo"); check.textContent = ""; qw.style.display = "none";
+  }
+}
+
+function mudaQtdEspera(tipo, delta) {
+  const max = ESTOQUE[tipo].total;
+  esperaEquip[tipo].qtd = Math.max(1, Math.min(max, esperaEquip[tipo].qtd + delta));
+  document.getElementById(`espera-qty-num-${tipo}`).textContent = esperaEquip[tipo].qtd;
+}
+
+async function confirmarEspera() {
+  const nome = document.getElementById("espera-nome").value.trim();
+  const err  = document.getElementById("espera-error");
+  err.textContent = "";
+
+  if (!nome) { err.textContent = "✏️ Digite o nome do professor."; return; }
+  const sel = Object.keys(esperaEquip).filter(t => esperaEquip[t].ativo);
+  if (!sel.length) { err.textContent = "🎒 Selecione ao menos um equipamento."; return; }
+
+  const equipStr = sel.map(t => `${esperaEquip[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
+
+  const btn = document.getElementById("espera-btn");
+  btn.textContent = "Salvando..."; btn.disabled = true;
+
+  try {
+    const res = await fetchComTimeout(`${API}/espera`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        nome, linha: esperaLinha, coluna: esperaColuna, equipamentos: equipStr
+      })
+    }, 12000);
+    if (!res.ok) throw new Error();
+    fecharModalEspera();
+    showToast(`⏳ ${nome} entrou na lista de espera!`, "success");
+  } catch(e) {
+    err.textContent = "✗ Erro ao salvar. Tente novamente.";
+  }
+
+  btn.textContent = "⏳ Entrar na Lista de Espera"; btn.disabled = false;
+}
+
+function fecharModalEspera() {
+  document.getElementById("overlay-espera").classList.remove("open");
+}
+document.getElementById("overlay-espera").addEventListener("click", function(e){
+  if (e.target === this) fecharModalEspera();
+});
+
+// ════════════════════════════════════════
+// VERIFICAÇÃO E PROMOÇÃO AUTOMÁTICA
+// ════════════════════════════════════════
+async function verificarPromocoes() {
+  try {
+    const res = await fetchComTimeout(`${API}/promover`, {method:"POST"}, 15000);
+    const data = await res.json();
+    if (data.promovidos && data.promovidos.length > 0) {
+      mostrarBannerPromocao(data.promovidos);
+    }
+  } catch(e) { /* silencioso */ }
+}
+
+function mostrarBannerPromocao(promovidos) {
+  const banner = document.getElementById("promo-banner");
+  const inner  = document.getElementById("promo-inner");
+  const cab    = dadosGlobais[0] || [];
+  const DIAS_ABV = ["","Seg","Ter","Qua","Qui","Sex"];
+
+  const itens = promovidos.map(p => {
+    const h   = HORARIOS[p.linha] || ["?","?"];
+    const dia = cab[p.coluna-1] || DIAS_ABV[p.coluna-1] || "";
+    return `<strong>${p.nome}</strong> — ${dia} ${h[0]}–${h[1]} · ${p.equipamentos}`;
+  }).join("<br>");
+
+  inner.innerHTML = `✅ Promovido da lista de espera:<br>${itens}`;
+  banner.style.display = "flex";
+
+  // Some automaticamente após 12 segundos
+  setTimeout(fecharBanner, 12000);
+}
+
+function fecharBanner() {
+  document.getElementById("promo-banner").style.display = "none";
 }
 
 // ════════════════════════════════════════
