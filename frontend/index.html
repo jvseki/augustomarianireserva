@@ -148,11 +148,11 @@ const ESTOQUE = {
 const LINHAS_INTERVALO = new Set([5, 8, 12]);
 
 const HORARIOS = {
-  2:  ["07:00","7:50"],
-  3:  ["7:50","8:40"],
-  4:  ["8:40","9:30"],
-  5:  ["9:30","9:50"],
-  6:  ["9:50","10:40"],
+  2:  ["07:00","07:50"],
+  3:  ["07:50","08:40"],
+  4:  ["08:40","09:30"],
+  5:  ["09:30","09:50"],
+  6:  ["09:50","10:40"],
   7:  ["10:40","11:30"],
   8:  ["11:30","12:30"],
   9:  ["12:30","13:20"],
@@ -164,7 +164,7 @@ const HORARIOS = {
   15: ["17:00","17:50"],
 };
 
-const DIAS_NOME = ["","SEGUNDA","TERÇA","QUARTA","QUINTA","SEXTA"];
+const DIAS_NOME = ["","Segunda","Terça","Quarta","Quinta","Sexta"];
 
 let dadosGlobais = [];
 let modalDiaColuna = null;
@@ -515,8 +515,7 @@ function renderTabela(dados) {
           const dStr = `${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")}`;
           const isHoje = dt.toDateString() === hoje.toDateString();
           if (isHoje) td.classList.add("hoje-col");
-          const celulaNorm = celula.charAt(0) + celula.slice(1).toLowerCase();
-          td.innerHTML = `<span class="th-dia-nome">${celulaNorm}</span><span class="th-dia-data">${dStr}${isHoje?" · hoje":""}</span>`;
+          td.innerHTML = `<span class="th-dia-nome">${celula}</span><span class="th-dia-data">${dStr}${isHoje?" · hoje":""}</span>`;
           td.onclick = () => abrirModalDia(coluna, celula, dados);
         }
         tr.appendChild(td); return;
@@ -611,8 +610,7 @@ function renderCards(dados) {
 
     const hdr = document.createElement("div");
     hdr.className = "day-card-header";
-    const diaCard = diaNome.charAt(0) + diaNome.slice(1).toLowerCase();
-    hdr.innerHTML = `<div><div class="day-card-nome">${diaCard}</div><div class="day-card-data">${dStr}${isHoje?" · hoje":""}</div></div><span class="day-card-arrow">▼</span>`;
+    hdr.innerHTML = `<div><div class="day-card-nome">${diaNome}</div><div class="day-card-data">${dStr}${isHoje?" · hoje":""}</div></div><span class="day-card-arrow">▼</span>`;
     hdr.onclick = () => { card.classList.toggle("collapsed"); };
 
     const slots = document.createElement("div");
@@ -695,7 +693,7 @@ function abrirModalDia(coluna, diaNome, dados, linhaPreSel=null) {
     }
   }
 
-  document.getElementById("modal-title").textContent  = "📅 " + diaNome.charAt(0) + diaNome.slice(1).toLowerCase();
+  document.getElementById("modal-title").textContent  = "📅 " + diaNome;
   document.getElementById("modal-sub").textContent    = subtitulo;
   document.getElementById("nome-input").value         = "";
   document.getElementById("error-msg").textContent    = "";
@@ -956,8 +954,7 @@ function abrirModalEspera(coluna, ln, dados, tipoPreSel=null) {
   const diaNome = cab[coluna-1] || "";
 
   document.getElementById("espera-title").textContent = "⏳ Lista de Espera";
-  const dNorm = diaNome.charAt(0) + diaNome.slice(1).toLowerCase();
-  document.getElementById("espera-sub").textContent   = `${dNorm} · ${h[0]}–${h[1]}`;
+  document.getElementById("espera-sub").textContent   = `${diaNome} · ${h[0]}–${h[1]}`;
   document.getElementById("espera-nome").value        = "";
   document.getElementById("espera-error").textContent = "";
 
