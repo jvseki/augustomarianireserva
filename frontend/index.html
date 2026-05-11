@@ -451,11 +451,16 @@ async function carregarAgenda() {
     const r2 = await fetchComTimeout(`${API}/agenda`);
     const dados = await r2.json();
     dadosGlobais = dados;
+    // Verifica promoções ANTES de renderizar — sem delay visual
+    await verificarPromocoes();
+    // Recarrega dados frescos caso alguma promoção tenha ocorrido
+    const r3 = await fetchComTimeout(`${API}/agenda`);
+    const dadosFinal = await r3.json();
+    dadosGlobais = dadosFinal;
     renderCalendario();
-    renderTabela(dados);
-    renderCards(dados);
-    atualizarStockHeader(dados);
-    verificarPromocoes();
+    renderTabela(dadosFinal);
+    renderCards(dadosFinal);
+    atualizarStockHeader(dadosFinal);
   } catch(e) {
     document.getElementById("loading").innerHTML =
       `<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px;text-align:center">⚠️ Erro ao conectar com o servidor</p>`;
@@ -787,6 +792,10 @@ function renderEquipRows(coluna, dados) {
       : "esgotado neste horário";
     const jaAtivo = equipState[tipo].ativo && d>0;
     const jaQtd   = Math.min(equipState[tipo].qtd, d>0?d:1);
+    // Se esgotado: mostra botão de entrar na fila para este tipo específico
+    const filaBtn = d<=0
+      ? `<button class="fila-equip-btn" onclick="event.stopPropagation();abrirFilaParcial('${tipo}')">⏳ fila</button>`
+      : "";
 
     row.innerHTML=`
       <div class="equip-row-check" id="check-${tipo}">${jaAtivo?"✔":""}</div>
@@ -795,13 +804,14 @@ function renderEquipRows(coluna, dados) {
         <div class="equip-row-name">${nome}</div>
         <div class="equip-row-disp">${dispLabel}</div>
       </div>
-      <div class="equip-row-qty" id="qty-wrap-${tipo}" style="display:${jaAtivo?"flex":"none"}">
+      ${d<=0 ? filaBtn : `<div class="equip-row-qty" id="qty-wrap-${tipo}" style="display:${jaAtivo?"flex":"none"}">
         <button class="qty-btn" onclick="event.stopPropagation();mudaQtd('${tipo}',-1)">−</button>
         <span class="qty-num" id="qty-num-${tipo}">${jaQtd}</span>
         <button class="qty-btn" onclick="event.stopPropagation();mudaQtd('${tipo}',+1)">+</button>
-      </div>`;
+      </div>`}`;
     if(jaAtivo){ row.classList.add("ativo"); equipState[tipo].qtd=jaQtd; }
-    row.onclick=()=>toggleEquip(tipo, coluna, dados);
+    if(d>0) row.onclick=()=>toggleEquip(tipo, coluna, dados);
+    else row.classList.add("sem-estoque"); row.style.opacity="1"; // visível mas não selecionável
     c.appendChild(row);
   });
 }
@@ -925,7 +935,16 @@ let esperaColuna = null;
 let esperaLinha  = null;
 let esperaEquip  = resetEquip();
 
-function abrirModalEspera(coluna, ln, dados) {
+
+// Abre modal de espera direto para um tipo específico de equipamento
+// (quando o professor está no modal de reserva e aquele tipo está esgotado)
+function abrirFilaParcial(tipo) {
+  // Fecha modal de reserva
+  document.getElementById("overlay").classList.remove("open");
+  // Abre modal de espera com o tipo pré-selecionado
+  abrirModalEspera(modalDiaColuna, horariosSelecionados[0] || null, dadosGlobais, tipo);
+}
+function abrirModalEspera(coluna, ln, dados, tipoPreSel=null) {
   esperaColuna = coluna;
   esperaLinha  = ln;
   esperaEquip  = resetEquip();
@@ -948,18 +967,21 @@ function abrirModalEspera(coluna, ln, dados) {
     const row = document.createElement("div");
     row.className = `equip-row ${tipo}`;
     row.id = `espera-row-${tipo}`;
+    const preAtivo = tipoPreSel === tipo;
+    if (preAtivo) { esperaEquip[tipo].ativo = true; }
     row.innerHTML = `
-      <div class="equip-row-check" id="espera-check-${tipo}"></div>
+      <div class="equip-row-check" id="espera-check-${tipo}">${preAtivo?"✔":""}</div>
       <span class="equip-row-emoji">${emoji}</span>
       <div class="equip-row-info">
         <div class="equip-row-name">${nome}</div>
         <div class="equip-row-disp">máx. ${total}</div>
       </div>
-      <div class="equip-row-qty" id="espera-qty-wrap-${tipo}" style="display:none">
+      <div class="equip-row-qty" id="espera-qty-wrap-${tipo}" style="display:${preAtivo?"flex":"none"}">
         <button class="qty-btn" onclick="event.stopPropagation();mudaQtdEspera('${tipo}',-1)">−</button>
         <span class="qty-num" id="espera-qty-num-${tipo}">1</span>
         <button class="qty-btn" onclick="event.stopPropagation();mudaQtdEspera('${tipo}',+1)">+</button>
       </div>`;
+    if (preAtivo) row.classList.add("ativo");
     row.onclick = () => toggleEquipEspera(tipo);
     c.appendChild(row);
   });

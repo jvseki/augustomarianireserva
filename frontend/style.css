@@ -686,3 +686,31 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   color: var(--orange); margin-top: 3px;
   font-family: 'DM Mono', monospace;
 }
+
+/* ══════════════════════════════════════
+   BOTÃO FILA POR EQUIPAMENTO
+══════════════════════════════════════ */
+.fila-equip-btn {
+  padding: 6px 12px;
+  background: var(--orange-bg);
+  border: 2px solid var(--orange-bd);
+  border-radius: 20px;
+  color: var(--orange);
+  font-size: 11px; font-weight: 800;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all .12s;
+}
+.fila-equip-btn:active { transform: scale(.95); }
+
+/* Equipamento esgotado no modal — visível mas não clicável para selecionar */
+.equip-row.sem-estoque {
+  opacity: 1 !important;
+  pointer-events: none;
+  background: #f5f0e8;
+}
+.equip-row.sem-estoque .fila-equip-btn {
+  pointer-events: all; /* só o botão de fila é clicável */
+}
