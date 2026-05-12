@@ -148,8 +148,21 @@ const ESTOQUE = {
 
 const LINHAS_INTERVALO = new Set([5, 12]); // linha 8 (11:30-12:30) não é intervalo
 
-// ── Professores da área técnica — agendamento fixo, nunca resetados ──
-const PROF_FIXOS = new Set(["FRAN","TAINA","ROGERIO","MOISES","SHIRLEY"]);
+// ── Professores fixos — agendamento permanente, nunca resetados ──
+// tag(nome, linha, coluna) → string da disciplina
+const PROF_FIXOS_MAP = {
+  "FRAN":    (ln, col) => (col === 4 && ln === 14) ? "📐 Matemática" : "🔧 Tecnologia",
+  "TAINA":   ()        => "🔧 Tecnologia / 📐 Matemática",
+  "ROGERIO": ()        => "📐 Matemática",
+  "SHIRLEY": ()        => "📐 Matemática",
+  "MOISES":  ()        => "🌐 Inglês",
+};
+const PROF_FIXOS = new Set(Object.keys(PROF_FIXOS_MAP));
+
+function tagProfFixo(nome, ln, col) {
+  const fn = PROF_FIXOS_MAP[nome.trim().toUpperCase()];
+  return fn ? fn(ln, col) : "🔧 Tecnologia";
+}
 
 const HORARIOS = {
   2:  ["07:00","07:50"],
@@ -541,7 +554,8 @@ function renderTabela(dados) {
       } else if (val==="BLOQUEADO") {
         td.className="bloqueado"; td.innerText="Bloqueado";
       } else if (PROF_FIXOS.has(val)) {
-        td.className="prof-fixo"; td.innerHTML=`<span class="prof-fixo-nome">${celula.trim()}</span><span class="prof-fixo-tag">🔧 Tecnologia</span>`;
+        const tag = tagProfFixo(val, linhaNum, coluna);
+        td.className="prof-fixo"; td.innerHTML=`<span class="prof-fixo-nome">${celula.trim()}</span><span class="prof-fixo-tag">${tag}</span>`;
       } else if (val===""||val==="LIVRE") {
         td.className="livre";
         const tag = slotDispTag(coluna, linhaNum, dados);
@@ -639,7 +653,7 @@ function renderCards(dados) {
       if (passado)              { cls="expirado";  status="🕐 Passado"; }
       else if (intervalo)       { cls="intervalo"; status="☕ Intervalo"; }
       else if (val==="BLOQUEADO"){ cls="bloqueado"; status="Bloqueado"; }
-      else if (PROF_FIXOS.has(val)) { cls="prof-fixo"; status=ld[col-1].trim(); detalhe="🔧 Tecnologia"; }
+      else if (PROF_FIXOS.has(val)) { cls="prof-fixo"; status=ld[col-1].trim(); detalhe=tagProfFixo(val, ln, col); }
       else if (val===""||val==="LIVRE") {
         cls="livre"; status="Livre"; livreTotal++;
         detalhe = slotDispTag(col, ln, dados);
