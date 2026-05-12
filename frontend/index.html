@@ -52,6 +52,7 @@
       <span class="badge bloqueado">Bloqueado</span>
       <span class="badge intervalo">☕ Intervalo</span>
       <span class="badge expirado">🕐 Passado</span>
+      <span class="badge prof-fixo-badge">🔧 Tecnologia</span>
     </div>
   </header>
 
@@ -145,7 +146,10 @@ const ESTOQUE = {
   preto:  { label:"notebook preto", total:11, emoji:"🖥️", nome:"Note Preto" },
 };
 
-const LINHAS_INTERVALO = new Set([5, 8, 12]);
+const LINHAS_INTERVALO = new Set([5, 12]); // linha 8 (11:30-12:30) não é intervalo
+
+// ── Professores da área técnica — agendamento fixo, nunca resetados ──
+const PROF_FIXOS = new Set(["FRAN","TAINA","ROGERIO","MOISES","SHIRLEY"]);
 
 const HORARIOS = {
   2:  ["07:00","07:50"],
@@ -284,6 +288,8 @@ async function resetarPassadosHoje(dados) {
     if (agora() < toMin(fim)) continue;
     const ld = dados[ln-1]; if (!ld) continue;
     const v = (ld[col-1]||"").trim().toUpperCase();
+    // Nunca limpa células de professores fixos
+    if (PROF_FIXOS.has(v)) continue;
     if (v && v!=="LIVRE" && v!=="BLOQUEADO") {
       try {
         await fetchComTimeout(`${API}/editar`, {
@@ -310,6 +316,7 @@ async function limpezaSexta(dados) {
     if (LINHAS_INTERVALO.has(ln)) continue;
     for (let col=2; col<=6; col++) {
       const v=(ld[col-1]||"").trim().toUpperCase();
+      if (PROF_FIXOS.has(v)) continue; // professor fixo — nunca limpar
       if (v && v!=="LIVRE" && v!=="BLOQUEADO") {
         promessas.push(
           fetchComTimeout(`${API}/editar`, {
@@ -533,6 +540,8 @@ function renderTabela(dados) {
         td.className="intervalo-cell"; td.innerText="☕ Intervalo";
       } else if (val==="BLOQUEADO") {
         td.className="bloqueado"; td.innerText="Bloqueado";
+      } else if (PROF_FIXOS.has(val)) {
+        td.className="prof-fixo"; td.innerHTML=`<span class="prof-fixo-nome">${celula.trim()}</span><span class="prof-fixo-tag">🔧 Tecnologia</span>`;
       } else if (val===""||val==="LIVRE") {
         td.className="livre";
         const tag = slotDispTag(coluna, linhaNum, dados);
@@ -630,6 +639,7 @@ function renderCards(dados) {
       if (passado)              { cls="expirado";  status="🕐 Passado"; }
       else if (intervalo)       { cls="intervalo"; status="☕ Intervalo"; }
       else if (val==="BLOQUEADO"){ cls="bloqueado"; status="Bloqueado"; }
+      else if (PROF_FIXOS.has(val)) { cls="prof-fixo"; status=ld[col-1].trim(); detalhe="🔧 Tecnologia"; }
       else if (val===""||val==="LIVRE") {
         cls="livre"; status="Livre"; livreTotal++;
         detalhe = slotDispTag(col, ln, dados);
