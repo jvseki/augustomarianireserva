@@ -1,0 +1,245 @@
+# 📚 Agendamento de Notebooks — Laboratório de Informática
+
+Sistema web completo para agendamento de notebooks, tablets e equipamentos do laboratório de informática escolar. Permite que professores reservem equipamentos por horário e dia da semana, com suporte a múltiplas reservas no mesmo slot, lista de espera automática e limpeza semanal.
+
+---
+
+## 🗂️ Estrutura do Projeto
+
+```
+projeto/
+├── index.html          # Frontend — interface completa do sistema
+├── style.css           # Estilos separados (tema caderno escolar)
+├── app.py              # Backend Flask — API REST
+├── sheets.py           # Conexão com Google Sheets
+├── config.py           # Nome da planilha
+├── credenciais.json    # Credenciais da conta de serviço Google
+├── requirements.txt    # Dependências Python
+├── Procfile            # Comando de inicialização (Render)
+└── .gitignore          # Arquivos ignorados pelo Git
+```
+
+---
+
+## ⚙️ Tecnologias Utilizadas
+
+| Camada | Tecnologia |
+|--------|-----------|
+| Frontend | HTML5 + CSS3 + JavaScript puro |
+| Backend | Python 3 + Flask |
+| Banco de dados | Google Sheets (via API) |
+| Hospedagem backend | Render.com (plano gratuito) |
+| Autenticação Google | Service Account (oauth2client + gspread) |
+
+---
+
+## 📊 Estrutura da Planilha Google Sheets
+
+### Aba: Página1 (agenda principal)
+
+| Coluna A | Coluna B | Coluna C | Coluna D | Coluna E | Coluna F |
+|----------|----------|----------|----------|----------|----------|
+| Horário | Segunda | Terça | Quarta | Quinta | Sexta |
+| 07:00 - 7:50 | _(vazio)_ | _(vazio)_ | _(vazio)_ | _(vazio)_ | _(vazio)_ |
+| 7:50 - 8:40 | ... | ... | ... | ... | ... |
+| ... | ... | ... | ... | ... | ... |
+
+**Linhas fixas:**
+- Linha 1: cabeçalho (não editar)
+- Linha 2–15: horários (coluna A fixo, colunas B–F são os agendamentos)
+- Linhas de intervalo: 5 (9:30–9:50), 8 (11:30–12:30), 12 (15:00–15:20)
+
+**Regras das células (B–F):**
+
+| Conteúdo | Significado |
+|----------|------------|
+| _(vazio)_ | Livre para agendar |
+| `BLOQUEADO` | Bloqueado manualmente — não pode ser agendado |
+| `João | 23 notebook prata` | 1 professor reservado |
+| `João | 23 notebook prata § Maria | 12 tablet` | 2 professores no mesmo horário |
+
+> ⚠️ Intervalos devem ficar **sempre vazios** — o sistema reconhece automaticamente pelas linhas 5, 8 e 12.
+
+### Aba: Espera (lista de espera)
+
+Criada automaticamente pelo sistema. Colunas:
+
+| id | nome | linha | coluna | equipamentos | timestamp |
+|----|------|-------|--------|--------------|-----------|
+
+---
+
+## 🎒 Estoque de Equipamentos
+
+Configurado diretamente no `index.html` (variável `ESTOQUE`):
+
+```javascript
+const ESTOQUE = {
+  tablet: { label:"tablet",         total:12, emoji:"📱", nome:"Tablet" },
+  prata:  { label:"notebook prata", total:23, emoji:"💻", nome:"Note Prata" },
+  preto:  { label:"notebook preto", total:11, emoji:"🖥️", nome:"Note Preto" },
+};
+```
+
+Para alterar o total de equipamentos, edite os valores de `total`.
+
+---
+
+## 🕐 Horários do Sistema
+
+```javascript
+const HORARIOS = {
+  2:  ["07:00","07:50"],   // linha 2 da planilha
+  3:  ["07:50","08:40"],
+  4:  ["08:40","09:30"],
+  5:  ["09:30","09:50"],   // INTERVALO
+  6:  ["09:50","10:40"],
+  7:  ["10:40","11:30"],
+  8:  ["11:30","12:30"],   // INTERVALO
+  9:  ["12:30","13:20"],
+  10: ["13:20","14:10"],
+  11: ["14:10","15:00"],
+  12: ["15:00","15:20"],   // INTERVALO
+  13: ["15:20","16:10"],
+  14: ["16:10","17:00"],
+  15: ["17:00","17:50"],
+};
+```
+
+---
+
+## 🔄 Lógica de Negócio
+
+### Calendário Dinâmico
+- O sistema calcula automaticamente os dias da semana atual (seg–sex)
+- **Sexta-feira ≥ 18h, sábado ou domingo:** já mostra a semana seguinte
+- O calendário nunca trava em datas fixas — tudo calculado com `new Date()`
+
+### Horários Passados
+- Horários já encerrados no dia de hoje → marcados como "🕐 Passado" (cinza, não clicáveis)
+- Dias anteriores ao de hoje na mesma semana → todos os horários marcados como passado
+- Durante semana futura (após sexta 18h): nenhum horário é passado
+
+### Limpeza Semanal (Sexta 18h)
+- Toda sexta-feira a partir das 18h, o sistema apaga automaticamente todos os agendamentos da semana
+- Usa `localStorage` para garantir que a limpeza ocorra apenas uma vez por semana
+- Na segunda-feira, a planilha já está limpa e pronta
+
+### Múltiplas Reservas no Mesmo Slot
+- Dois ou mais professores podem agendar o mesmo horário desde que haja equipamento disponível
+- Separador `§` é usado entre reservas: `João | 23 notebook prata § Maria | 12 tablet`
+- O sistema calcula em tempo real quanto de cada equipamento ainda sobra
+
+### Lista de Espera
+- Quando um equipamento específico está esgotado num horário, o professor pode entrar na lista de espera
+- A fila é salva na aba "Espera" do Google Sheets
+- A cada atualização do site (manual ou automática a cada 60s), o sistema verifica se abrira vaga
+- A verificação é por equipamento específico (não exige o slot totalmente vazio)
+- Quando promovido: banner verde aparece no topo com o nome do professor e detalhes
+
+---
+
+## 🌐 API — Rotas do Backend
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/` | Status da API |
+| GET | `/agenda` | Retorna toda a planilha (array de arrays) |
+| POST | `/editar` | Edita uma célula `{linha, coluna, valor}` |
+| GET | `/espera` | Lista todos os itens da fila de espera |
+| POST | `/espera` | Adiciona professor na fila `{nome, linha, coluna, equipamentos}` |
+| DELETE | `/espera/<id>` | Remove item da fila pelo ID |
+| POST | `/promover` | Verifica e promove automaticamente itens da fila |
+
+---
+
+## 🚀 Como Fazer Deploy (Render.com)
+
+1. Suba o projeto para um repositório GitHub (sem o `credenciais.json`)
+2. Crie um novo Web Service no Render apontando para o repositório
+3. Configure as variáveis de ambiente:
+   - `GOOGLE_CREDENTIALS` → conteúdo do `credenciais.json` como string JSON
+4. O Render detecta o `Procfile` e inicia com `python app.py`
+
+> ⚠️ O plano gratuito do Render hiberna após 15 minutos sem uso. A primeira requisição pode demorar ~30s para acordar o servidor.
+
+---
+
+## 🔑 Configuração Google Sheets
+
+### Pré-requisitos
+1. Criar projeto no [Google Cloud Console](https://console.cloud.google.com)
+2. Ativar a API do Google Sheets e Google Drive
+3. Criar uma **Conta de Serviço** e baixar o JSON de credenciais
+4. Compartilhar a planilha com o e-mail da conta de serviço (permissão de Editor)
+
+### Variável de ambiente (produção)
+```bash
+GOOGLE_CREDENTIALS='{"type":"service_account","project_id":"...","private_key":"...","client_email":"...",...}'
+```
+
+### Local (desenvolvimento)
+Coloque o arquivo `credenciais.json` na raiz do projeto. O `sheets.py` detecta automaticamente.
+
+---
+
+## 🖥️ Funcionalidades da Interface
+
+### Desktop
+- Tabela semanal completa com todos os dias e horários visíveis simultaneamente
+- Clique em qualquer célula livre para abrir o modal de reserva
+- Células parcialmente ocupadas mostram os nomes dos professores já agendados e o que ainda sobra
+- Células totalmente ocupadas mostram "⏳ lista de espera" e são clicáveis para entrar na fila
+
+### Mobile
+- Layout em cards por dia da semana (collapsible)
+- Cada horário exibe status, nome do professor e equipamentos
+- Mesma funcionalidade de reserva e lista de espera
+
+### Modal de Reserva
+1. Professor digita o nome
+2. Seleciona um ou mais horários do dia
+3. Seleciona equipamentos e quantidade (mostra somente o que está disponível)
+4. Se um equipamento estiver esgotado: botão "⏳ fila" aparece só naquele tipo
+5. Confirmar → salva na planilha com timeout de 12s (não trava mais)
+
+---
+
+## 🛠️ Manutenção Manual da Planilha
+
+| Situação | O que fazer |
+|----------|------------|
+| Cancelar reserva de um professor | Apagar o conteúdo da célula (deixar vazio) |
+| Cancelar um de dois professores no mesmo slot | Editar a célula e remover o bloco `§ Nome \| equip` correspondente |
+| Bloquear um horário permanentemente | Escrever `BLOQUEADO` na célula |
+| Desbloquear | Apagar o conteúdo da célula |
+| Resetar semana manualmente | Apagar todo o conteúdo das células B2:F15 |
+
+---
+
+## 📦 Dependências (requirements.txt)
+
+```
+Flask
+flask-cors
+gspread
+oauth2client
+```
+
+---
+
+## 🔒 Segurança
+
+- O `credenciais.json` **nunca** deve ser commitado no Git (está no `.gitignore`)
+- Em produção, usar sempre a variável de ambiente `GOOGLE_CREDENTIALS`
+- O sistema não tem autenticação de usuário — é voltado para uso interno da escola
+- CORS habilitado para permitir acesso do frontend hospedado em qualquer domínio
+
+---
+
+## 📝 Observações Finais
+
+- O sistema atualiza automaticamente a cada **60 segundos**
+- A limpeza semanal usa `localStorage` do navegador — se limpar o cache, pode executar novamente
+- O separador `§` nas células da planilha **não deve ser editado manualmente** por professores
+- Qualquer célula diferente de vazio, `BLOQUEADO` ou formato `Nome | equipamentos` é tratada como livre
