@@ -461,11 +461,13 @@ function dispDia(coluna, dados) {
 
 function slotDispTag(coluna, ln, dados) {
   const s = dispSlot(coluna, ln, dados);
+  const ld = dados[ln-1];
+  const profFixaNaCell = ld ? isCelulaFixaPura(ld[coluna-1]) : false;
   const p = [];
   if (s.tablet>0) p.push(`📱${s.tablet}`);
-  if (s.prata >0) p.push(`💻${s.prata}`);
+  if (s.prata >0 && !profFixaNaCell) p.push(`💻${s.prata}`);
   if (s.preto >0) p.push(`🖥️${s.preto}`);
-  return p.join(" · ");
+  return p.join(" · ") || "—";
 }
 
 // ════════════════════════════════════════
@@ -679,7 +681,7 @@ function renderCards(dados) {
         cls = temOutrosM ? "prof-fixo prof-fixo-aberto" : "prof-fixo";
         status = ld[col-1].trim();
         detalhe = tagProfFixo(ld[col-1].trim()) + " · 📓 23 notebook prata";
-        onclick = temOutrosM ? () => abrirModalDia(col, cab[col-1]||"", dados, ln) : null;
+        if (temOutrosM) row.onclick = () => abrirModalDia(col, cab[col-1]||"", dados, ln);
       }
       else if (val===""||val==="LIVRE") {
         cls="livre"; status="Livre"; livreTotal++;
@@ -792,16 +794,26 @@ function renderHorariosBtns(coluna, dados, linhaPreSel) {
       btn.onclick=()=>abrirModalEspera(coluna, ln, dados);
     } else {
       // Livre ou parcialmente ocupado — pode agendar
-      const tag = slotDispTag(coluna, ln, dados);
-      let extra = "";
       const profFixaPura = isCelulaFixaPura(celVal);
+      const dispAtual = dispSlot(coluna, ln, dados);
+      const temDispHorario = dispAtual.tablet > 0 || dispAtual.preto > 0 || (!profFixaPura && dispAtual.prata > 0);
+
+      let extra = "";
       if (profFixaPura) {
         const nf = celVal.trim();
+        const dispFixoTag = slotDispTag(coluna, ln, dados); // mostra só tablet/preto
         extra = `<span class="h-status" style="color:var(--fixo)">💻 ${nf} · sem prata</span>`;
+        if (!temDispHorario) {
+          // Prof fixa ocupa tudo (sem tablet nem preto sobrando) — não pode agendar
+          btn.classList.add("ocupado-slot"); btn.disabled = true;
+          btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-disp">—</span>${extra}</div><span style="font-size:10px;color:var(--fixo);font-weight:800">💻 fixo</span>`;
+          c.appendChild(btn); continue;
+        }
       } else if (temRes) {
         const reservas = listarReservas(celVal);
         extra = `<span class="h-status" style="color:var(--blue)">+${reservas.map(r=>r.nome).join(" + ")}</span>`;
       }
+      const tag = slotDispTag(coluna, ln, dados);
       btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-disp">${tag}</span>${extra}</div>`;
       if(ln===linhaPreSel) btn.classList.add("selecionado");
       btn.onclick=()=>toggleHorario(ln, btn, coluna, dados);
@@ -859,7 +871,9 @@ function renderEquipRows(coluna, dados) {
     const n = horariosSelecionados.length;
     const dispLabel = d>0
       ? `${d} disponíve${d===1?"l":"is"}${n>1?` (mín. entre os ${n} horários)`:""}`
-      : "esgotado neste horário";
+      : (tipo === "prata" && prataBloqueada)
+        ? "reservado — Tecnologia/Programação"
+        : "esgotado neste horário";
     const jaAtivo = equipState[tipo].ativo && d>0;
     const jaQtd   = Math.min(equipState[tipo].qtd, d>0?d:1);
     // Se esgotado: mostra botão de entrar na fila para este tipo específico
@@ -880,8 +894,15 @@ function renderEquipRows(coluna, dados) {
         <button class="qty-btn" onclick="event.stopPropagation();mudaQtd('${tipo}',+1)">+</button>
       </div>`}`;
     if(jaAtivo){ row.classList.add("ativo"); equipState[tipo].qtd=jaQtd; }
-    if(d>0) row.onclick=()=>toggleEquip(tipo, coluna, dados);
-    else row.classList.add("sem-estoque"); row.style.opacity="1"; // visível mas não selecionável
+    if(d>0) {
+      row.onclick=()=>toggleEquip(tipo, coluna, dados);
+      row.style.opacity="1";
+    } else {
+      row.classList.add("sem-estoque");
+      row.style.opacity="0.55";
+      row.style.cursor="not-allowed";
+      row.onclick=null;
+    }
     c.appendChild(row);
   });
 }
@@ -890,9 +911,12 @@ function toggleEquip(tipo, col, dados) {
   if(document.getElementById(`equip-row-${tipo}`).classList.contains("sem-estoque")) return;
   const colUse  = col   || modalDiaColuna;
   const dadosUse = dados || dadosGlobais;
-  const disp = horariosSelecionados.length>0
+  const prataBloq = temProfFixaNaSelecao(colUse, dadosUse);
+  if (tipo === "prata" && prataBloq) return; // prata bloqueada pela prof fixa
+  const dispRaw = horariosSelecionados.length>0
     ? dispSelecao(colUse, horariosSelecionados, dadosUse)
     : {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
+  const disp = {...dispRaw, prata: prataBloq ? 0 : dispRaw.prata};
   equipState[tipo].ativo=!equipState[tipo].ativo;
   const row  =document.getElementById(`equip-row-${tipo}`);
   const check=document.getElementById(`check-${tipo}`);
@@ -910,9 +934,12 @@ function mudaQtd(tipo, delta) {
   const disp = horariosSelecionados.length>0
     ? dispSelecao(modalDiaColuna, horariosSelecionados, dadosGlobais)
     : {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
-  let v=Math.max(1, Math.min(disp[tipo], equipState[tipo].qtd+delta));
-  equipState[tipo].qtd=v;
-  document.getElementById(`qty-num-${tipo}`).textContent=v;
+  const prataBloq = temProfFixaNaSelecao(modalDiaColuna, dadosGlobais);
+  const maxDisp = (tipo === "prata" && prataBloq) ? 0 : disp[tipo];
+  // Mínimo 1 (não deixa ir a 0 — para zerar, basta desmarcar o equipamento)
+  const novoVal = Math.max(1, Math.min(maxDisp, equipState[tipo].qtd + delta));
+  equipState[tipo].qtd = novoVal;
+  document.getElementById(`qty-num-${tipo}`).textContent = novoVal;
 }
 
 // ════════════════════════════════════════
@@ -928,7 +955,9 @@ async function confirmarAcao() {
   const sel=Object.keys(equipState).filter(t=>equipState[t].ativo);
   if(sel.length===0){ err.textContent="🎒 Selecione ao menos um equipamento."; return; }
 
-  const dispMin=dispSelecao(modalDiaColuna, horariosSelecionados, dadosGlobais);
+  const dispMinRaw=dispSelecao(modalDiaColuna, horariosSelecionados, dadosGlobais);
+  const prataBloqConf = temProfFixaNaSelecao(modalDiaColuna, dadosGlobais);
+  const dispMin = {...dispMinRaw, prata: prataBloqConf ? 0 : dispMinRaw.prata};
   for(const t of sel){
     if(equipState[t].qtd>dispMin[t]){
       err.textContent=`⚠️ Só há ${dispMin[t]} ${ESTOQUE[t].label}(s) disponíveis em todos os horários selecionados.`;
@@ -949,9 +978,12 @@ async function confirmarAcao() {
       const ld = dadosGlobais[ln-1];
       const valorAtual = ld ? (ld[modalDiaColuna-1]||"").trim() : "";
       const vUp = valorAtual.toUpperCase();
+      // Se célula tem só nome de prof fixa, concatena com § (ela não tem |)
       const valorFinal = (!valorAtual || vUp==="" || vUp==="BLOQUEADO")
         ? novaReserva
-        : `${valorAtual} § ${novaReserva}`;
+        : isCelulaFixaPura(valorAtual)
+          ? `${valorAtual} | 23 notebook prata § ${novaReserva}`
+          : `${valorAtual} § ${novaReserva}`;
 
       const res = await fetchComTimeout(`${API}/editar`, {
         method:"POST",
