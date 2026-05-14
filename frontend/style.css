@@ -379,6 +379,14 @@ td.prof-fixo {
   font-family: 'DM Mono', monospace;
 }
 tbody tr:hover td.prof-fixo { background: #ede0ff !important; }
+td.prof-fixo-aberto { cursor: pointer !important; }
+td.prof-fixo-aberto:hover { background: #e4d4ff !important; }
+td.prof-fixo-aberto::after {
+  content: "＋ agendar";
+  display: block; font-size: 9px; font-weight: 700;
+  color: var(--fixo); opacity: .6; margin-top: 3px;
+  font-family: 'DM Mono', monospace; letter-spacing: .3px;
+}
 
 td.intervalo-cell {
   background: var(--orange-bg) !important;
