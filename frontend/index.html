@@ -52,7 +52,7 @@
       <span class="badge bloqueado">Bloqueado</span>
       <span class="badge intervalo">☕ Intervalo</span>
       <span class="badge expirado">🕐 Passado</span>
-      <span class="badge prof-fixo-badge">🔧 Tecnologia</span>
+      <span class="badge prof-fixo-badge">💻 Tecnologia / Programação</span>
     </div>
   </header>
 
@@ -149,19 +149,23 @@ const ESTOQUE = {
 const LINHAS_INTERVALO = new Set([5, 12]); // linha 8 (11:30-12:30) não é intervalo
 
 // ── Professores fixos — agendamento permanente, nunca resetados ──
-// tag(nome, linha, coluna) → string da disciplina
+// Apenas SHIRLEY, FRAN e TAINA — com 23 notebook prata reservados automaticamente
 const PROF_FIXOS_MAP = {
-  "FRAN":    (ln, col) => (col === 4 && ln === 14) ? "📐 Matemática" : "🔧 Tecnologia",
-  "TAINA":   ()        => "🔧 Tecnologia / 📐 Matemática",
-  "ROGERIO": ()        => "📐 Matemática",
-  "SHIRLEY": ()        => "📐 Matemática",
-  "MOISES":  ()        => "🌐 Inglês",
+  "SHIRLEY": () => "💻 Tecnologia / Programação",
+  "FRAN":    () => "💻 Tecnologia / Programação",
+  "TAINA":   () => "💻 Tecnologia / Programação",
 };
 const PROF_FIXOS = new Set(Object.keys(PROF_FIXOS_MAP));
 
-function tagProfFixo(nome, ln, col) {
+function tagProfFixo(nome) {
   const fn = PROF_FIXOS_MAP[nome.trim().toUpperCase()];
-  return fn ? fn(ln, col) : "🔧 Tecnologia";
+  return fn ? fn() : "💻 Tecnologia / Programação";
+}
+
+// Se a célula contém APENAS o nome da prof fixa (sem § e sem |), exibe com 23 prata
+function isCelulaFixaPura(celula) {
+  const v = (celula || "").trim().toUpperCase();
+  return PROF_FIXOS.has(v);
 }
 
 const HORARIOS = {
@@ -374,11 +378,19 @@ function extrairReserva(valor) {
   if (!valor) return null;
   const v = valor.trim().toUpperCase();
   if (!v || v==="BLOQUEADO") return null;
+  // Célula com apenas nome de prof fixa → conta 23 prata automaticamente
+  if (PROF_FIXOS.has(v)) return {tablet:0, prata:23, preto:0};
   if (!valor.includes("|")) return null;
   const res = {tablet:0, prata:0, preto:0};
   valor.split("§").forEach(bloco => {
     const partes = bloco.split("|");
     if (partes.length < 2) return;
+    // Se o nome antes do | é prof fixa e não tem equipamentos explícitos, conta 23 prata
+    const nomeBloco = partes[0].trim().toUpperCase();
+    if (PROF_FIXOS.has(nomeBloco) && !partes[1].trim()) {
+      res.prata += 23;
+      return;
+    }
     partes[1].split("+").forEach(seg => {
       const m = seg.trim().match(/(\d+)\s*(tablet|notebook prata|notebook preto)/i);
       if (m) {
@@ -553,9 +565,11 @@ function renderTabela(dados) {
         td.className="intervalo-cell"; td.innerText="☕ Intervalo";
       } else if (val==="BLOQUEADO") {
         td.className="bloqueado"; td.innerText="Bloqueado";
-      } else if (PROF_FIXOS.has(val)) {
-        const tag = tagProfFixo(val, linhaNum, coluna);
-        td.className="prof-fixo"; td.innerHTML=`<span class="prof-fixo-nome">${celula.trim()}</span><span class="prof-fixo-tag">${tag}</span>`;
+      } else if (isCelulaFixaPura(celula)) {
+        const nomeFixo = celula.trim();
+        const tag = tagProfFixo(nomeFixo);
+        td.className="prof-fixo";
+        td.innerHTML=`<span class="prof-fixo-nome">${nomeFixo}</span><span class="prof-fixo-tag">${tag}</span><span class="prof-fixo-equip">📓 23 notebook prata</span>`;
       } else if (val===""||val==="LIVRE") {
         td.className="livre";
         const tag = slotDispTag(coluna, linhaNum, dados);
@@ -653,7 +667,7 @@ function renderCards(dados) {
       if (passado)              { cls="expirado";  status="🕐 Passado"; }
       else if (intervalo)       { cls="intervalo"; status="☕ Intervalo"; }
       else if (val==="BLOQUEADO"){ cls="bloqueado"; status="Bloqueado"; }
-      else if (PROF_FIXOS.has(val)) { cls="prof-fixo"; status=ld[col-1].trim(); detalhe=tagProfFixo(val, ln, col); }
+      else if (isCelulaFixaPura(ld[col-1])) { cls="prof-fixo"; status=ld[col-1].trim(); detalhe=tagProfFixo(ld[col-1].trim()) + " · 📓 23 notebook prata"; }
       else if (val===""||val==="LIVRE") {
         cls="livre"; status="Livre"; livreTotal++;
         detalhe = slotDispTag(col, ln, dados);
