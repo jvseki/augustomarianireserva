@@ -52,7 +52,6 @@
       <span class="badge bloqueado">Bloqueado</span>
       <span class="badge intervalo">☕ Intervalo</span>
       <span class="badge expirado">🕐 Passado</span>
-      <span class="badge prof-fixo-badge">💻 Tecnologia / Programação</span>
     </div>
   </header>
 
@@ -148,25 +147,10 @@ const ESTOQUE = {
 
 const LINHAS_INTERVALO = new Set([5, 12]); // linha 8 (11:30-12:30) não é intervalo
 
-// ── Professores fixos — agendamento permanente, nunca resetados ──
-// Apenas SHIRLEY, FRAN e TAINA — com 23 notebook prata reservados automaticamente
-const PROF_FIXOS_MAP = {
-  "SHIRLEY": () => "💻 Tecnologia / Programação",
-  "FRAN":    () => "💻 Tecnologia / Programação",
-  "TAINA":   () => "💻 Tecnologia / Programação",
-};
-const PROF_FIXOS = new Set(Object.keys(PROF_FIXOS_MAP));
-
-function tagProfFixo(nome) {
-  const fn = PROF_FIXOS_MAP[nome.trim().toUpperCase()];
-  return fn ? fn() : "💻 Tecnologia / Programação";
-}
-
-// Se a célula contém APENAS o nome da prof fixa (sem § e sem |), exibe com 23 prata
-function isCelulaFixaPura(celula) {
-  const v = (celula || "").trim().toUpperCase();
-  return PROF_FIXOS.has(v);
-}
+// (professores fixos removidos — todos agendamentos são livres)
+const PROF_FIXOS = new Set();
+function isCelulaFixaPura() { return false; }
+function tagProfFixo() { return ""; }
 
 const HORARIOS = {
   2:  ["07:00","07:50"],
@@ -306,7 +290,6 @@ async function resetarPassadosHoje(dados) {
     const ld = dados[ln-1]; if (!ld) continue;
     const v = (ld[col-1]||"").trim().toUpperCase();
     // Nunca limpa células de professores fixos
-    if (PROF_FIXOS.has(v)) continue;
     if (v && v!=="LIVRE" && v!=="BLOQUEADO") {
       try {
         await fetchComTimeout(`${API}/editar`, {
@@ -333,7 +316,6 @@ async function limpezaSexta(dados) {
     if (LINHAS_INTERVALO.has(ln)) continue;
     for (let col=2; col<=6; col++) {
       const v=(ld[col-1]||"").trim().toUpperCase();
-      if (PROF_FIXOS.has(v)) continue; // professor fixo — nunca limpar
       if (v && v!=="LIVRE" && v!=="BLOQUEADO") {
         promessas.push(
           fetchComTimeout(`${API}/editar`, {
@@ -461,11 +443,9 @@ function dispDia(coluna, dados) {
 
 function slotDispTag(coluna, ln, dados) {
   const s = dispSlot(coluna, ln, dados);
-  const ld = dados[ln-1];
-  const profFixaNaCell = ld ? isCelulaFixaPura(ld[coluna-1]) : false;
   const p = [];
   if (s.tablet>0) p.push(`📱${s.tablet}`);
-  if (s.prata >0 && !profFixaNaCell) p.push(`💻${s.prata}`);
+  if (s.prata >0) p.push(`💻${s.prata}`);
   if (s.preto >0) p.push(`🖥️${s.preto}`);
   return p.join(" · ") || "—";
 }
@@ -567,17 +547,6 @@ function renderTabela(dados) {
         td.className="intervalo-cell"; td.innerText="☕ Intervalo";
       } else if (val==="BLOQUEADO") {
         td.className="bloqueado"; td.innerText="Bloqueado";
-      } else if (isCelulaFixaPura(celula)) {
-        const nomeFixo = celula.trim();
-        const tag = tagProfFixo(nomeFixo);
-        const dispFixo = dispSlot(coluna, linhaNum, dados); // tablet+preto livres
-        const temOutros = dispFixo.tablet > 0 || dispFixo.preto > 0;
-        td.className = temOutros ? "prof-fixo prof-fixo-aberto" : "prof-fixo";
-        td.innerHTML=`<span class="prof-fixo-nome">${nomeFixo}</span><span class="prof-fixo-tag">${tag}</span><span class="prof-fixo-equip">📓 23 notebook prata</span>`;
-        if (temOutros) {
-          livre++;
-          td.onclick = () => abrirModalDia(coluna, cab[j]||"", dados, linhaNum);
-        }
       } else if (val===""||val==="LIVRE") {
         td.className="livre";
         const tag = slotDispTag(coluna, linhaNum, dados);
@@ -620,12 +589,24 @@ function renderTabela(dados) {
   document.getElementById("table-container").style.display = "block";
 }
 
-// Exibe múltiplos professores na célula da tabela
+// Exibe múltiplos professores + equipamentos de forma compacta na tabela
+function fmtEquipBadges(equip) {
+  if (!equip) return "";
+  const badges = [];
+  const m1 = equip.match(/(\d+)\s*tablet/i);
+  const m2 = equip.match(/(\d+)\s*notebook prata/i);
+  const m3 = equip.match(/(\d+)\s*notebook preto/i);
+  if (m1) badges.push(`<span class="eq-badge tablet">📱${m1[1]}</span>`);
+  if (m2) badges.push(`<span class="eq-badge prata">💻${m2[1]}</span>`);
+  if (m3) badges.push(`<span class="eq-badge preto">🖥️${m3[1]}</span>`);
+  return badges.length ? `<span class="eq-badges">${badges.join("")}</span>` : `<span class="cell-equip">${equip}</span>`;
+}
+
 function fmtReservado(valor) {
   const reservas = listarReservas(valor);
   if (!reservas.length) return `<span>${valor}</span>`;
   return reservas.map((r, i) =>
-    `<span class="cell-nome">${i > 0 ? "+" : ""}${r.nome}</span><span class="cell-equip">${r.equip}</span>`
+    `<div class="cell-reserva">${i > 0 ? '<span class="cell-sep">+</span>' : ""}<span class="cell-nome">${r.nome}</span>${fmtEquipBadges(r.equip)}</div>`
   ).join("");
 }
 
@@ -675,14 +656,6 @@ function renderCards(dados) {
       if (passado)              { cls="expirado";  status="🕐 Passado"; }
       else if (intervalo)       { cls="intervalo"; status="☕ Intervalo"; }
       else if (val==="BLOQUEADO"){ cls="bloqueado"; status="Bloqueado"; }
-      else if (isCelulaFixaPura(ld[col-1])) {
-        const dispFixoM = dispSlot(col, ln, dados);
-        const temOutrosM = dispFixoM.tablet > 0 || dispFixoM.preto > 0;
-        cls = temOutrosM ? "prof-fixo prof-fixo-aberto" : "prof-fixo";
-        status = ld[col-1].trim();
-        detalhe = tagProfFixo(ld[col-1].trim()) + " · 📓 23 notebook prata";
-        if (temOutrosM) row.onclick = () => abrirModalDia(col, cab[col-1]||"", dados, ln);
-      }
       else if (val===""||val==="LIVRE") {
         cls="livre"; status="Livre"; livreTotal++;
         detalhe = slotDispTag(col, ln, dados);
@@ -794,22 +767,8 @@ function renderHorariosBtns(coluna, dados, linhaPreSel) {
       btn.onclick=()=>abrirModalEspera(coluna, ln, dados);
     } else {
       // Livre ou parcialmente ocupado — pode agendar
-      const profFixaPura = isCelulaFixaPura(celVal);
-      const dispAtual = dispSlot(coluna, ln, dados);
-      const temDispHorario = dispAtual.tablet > 0 || dispAtual.preto > 0 || (!profFixaPura && dispAtual.prata > 0);
-
       let extra = "";
-      if (profFixaPura) {
-        const nf = celVal.trim();
-        const dispFixoTag = slotDispTag(coluna, ln, dados); // mostra só tablet/preto
-        extra = `<span class="h-status" style="color:var(--fixo)">💻 ${nf} · sem prata</span>`;
-        if (!temDispHorario) {
-          // Prof fixa ocupa tudo (sem tablet nem preto sobrando) — não pode agendar
-          btn.classList.add("ocupado-slot"); btn.disabled = true;
-          btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-disp">—</span>${extra}</div><span style="font-size:10px;color:var(--fixo);font-weight:800">💻 fixo</span>`;
-          c.appendChild(btn); continue;
-        }
-      } else if (temRes) {
+      if (temRes) {
         const reservas = listarReservas(celVal);
         extra = `<span class="h-status" style="color:var(--blue)">+${reservas.map(r=>r.nome).join(" + ")}</span>`;
       }
@@ -838,15 +797,6 @@ function atualizarResumo() {
 }
 
 // ── Equipamentos ──
-// Verifica se algum horário selecionado tem prof fixa pura (bloqueia prata)
-function temProfFixaNaSelecao(coluna, dados) {
-  return horariosSelecionados.some(ln => {
-    const ld = dados[ln-1];
-    if (!ld) return false;
-    return isCelulaFixaPura(ld[coluna-1]);
-  });
-}
-
 function renderEquipRows(coluna, dados) {
   const c=document.getElementById("equip-rows");
   c.innerHTML="";
@@ -854,26 +804,17 @@ function renderEquipRows(coluna, dados) {
     ? dispSelecao(coluna, horariosSelecionados, dados)
     : {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
 
-  const prataBloqueada = temProfFixaNaSelecao(coluna, dados);
-
   Object.keys(ESTOQUE).forEach(tipo => {
     const {emoji,nome}=ESTOQUE[tipo];
-    // Se há prof fixa no slot selecionado, prata fica indisponível para outros
-    const d = (tipo === "prata" && prataBloqueada) ? 0 : disp[tipo];
+    const d = disp[tipo];
     const row=document.createElement("div");
     row.className=`equip-row ${tipo}`;
     row.id=`equip-row-${tipo}`;
     if(d<=0) row.classList.add("sem-estoque");
-    if(tipo === "prata" && prataBloqueada) {
-      row.title = "As 23 prata já estão reservadas para professor(a) de Tecnologia/Programação";
-    }
-
     const n = horariosSelecionados.length;
     const dispLabel = d>0
       ? `${d} disponíve${d===1?"l":"is"}${n>1?` (mín. entre os ${n} horários)`:""}`
-      : (tipo === "prata" && prataBloqueada)
-        ? "reservado — Tecnologia/Programação"
-        : "esgotado neste horário";
+      : "esgotado neste horário";
     const jaAtivo = equipState[tipo].ativo && d>0;
     const jaQtd   = Math.min(equipState[tipo].qtd, d>0?d:1);
     // Se esgotado: mostra botão de entrar na fila para este tipo específico
@@ -911,12 +852,9 @@ function toggleEquip(tipo, col, dados) {
   if(document.getElementById(`equip-row-${tipo}`).classList.contains("sem-estoque")) return;
   const colUse  = col   || modalDiaColuna;
   const dadosUse = dados || dadosGlobais;
-  const prataBloq = temProfFixaNaSelecao(colUse, dadosUse);
-  if (tipo === "prata" && prataBloq) return; // prata bloqueada pela prof fixa
-  const dispRaw = horariosSelecionados.length>0
+  const disp = horariosSelecionados.length>0
     ? dispSelecao(colUse, horariosSelecionados, dadosUse)
     : {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
-  const disp = {...dispRaw, prata: prataBloq ? 0 : dispRaw.prata};
   equipState[tipo].ativo=!equipState[tipo].ativo;
   const row  =document.getElementById(`equip-row-${tipo}`);
   const check=document.getElementById(`check-${tipo}`);
@@ -934,10 +872,7 @@ function mudaQtd(tipo, delta) {
   const disp = horariosSelecionados.length>0
     ? dispSelecao(modalDiaColuna, horariosSelecionados, dadosGlobais)
     : {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
-  const prataBloq = temProfFixaNaSelecao(modalDiaColuna, dadosGlobais);
-  const maxDisp = (tipo === "prata" && prataBloq) ? 0 : disp[tipo];
-  // Mínimo 1 (não deixa ir a 0 — para zerar, basta desmarcar o equipamento)
-  const novoVal = Math.max(1, Math.min(maxDisp, equipState[tipo].qtd + delta));
+  const novoVal = Math.max(1, Math.min(disp[tipo], equipState[tipo].qtd + delta));
   equipState[tipo].qtd = novoVal;
   document.getElementById(`qty-num-${tipo}`).textContent = novoVal;
 }
@@ -955,9 +890,7 @@ async function confirmarAcao() {
   const sel=Object.keys(equipState).filter(t=>equipState[t].ativo);
   if(sel.length===0){ err.textContent="🎒 Selecione ao menos um equipamento."; return; }
 
-  const dispMinRaw=dispSelecao(modalDiaColuna, horariosSelecionados, dadosGlobais);
-  const prataBloqConf = temProfFixaNaSelecao(modalDiaColuna, dadosGlobais);
-  const dispMin = {...dispMinRaw, prata: prataBloqConf ? 0 : dispMinRaw.prata};
+  const dispMin=dispSelecao(modalDiaColuna, horariosSelecionados, dadosGlobais);
   for(const t of sel){
     if(equipState[t].qtd>dispMin[t]){
       err.textContent=`⚠️ Só há ${dispMin[t]} ${ESTOQUE[t].label}(s) disponíveis em todos os horários selecionados.`;
@@ -981,9 +914,7 @@ async function confirmarAcao() {
       // Se célula tem só nome de prof fixa, concatena com § (ela não tem |)
       const valorFinal = (!valorAtual || vUp==="" || vUp==="BLOQUEADO")
         ? novaReserva
-        : isCelulaFixaPura(valorAtual)
-          ? `${valorAtual} | 23 notebook prata § ${novaReserva}`
-          : `${valorAtual} § ${novaReserva}`;
+        : `${valorAtual} § ${novaReserva}`;
 
       const res = await fetchComTimeout(`${API}/editar`, {
         method:"POST",

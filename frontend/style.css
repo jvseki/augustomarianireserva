@@ -32,10 +32,7 @@
   --gray-bg:     #eae5da;
   --gray-text:   #8c8070;
 
-  /* Professor fixo (área técnica) */
-  --fixo:        #6b21a8;
-  --fixo-bg:     #f3e8ff;
-  --fixo-bd:     #c084fc;
+
 
   /* Dia da semana — cores vivas */
   --seg:  #2563eb;
@@ -235,7 +232,7 @@ header h1 {
 .badge.bloqueado { background:var(--red-bg);    border-color:var(--red-bd);    color:var(--red); }
 .badge.intervalo { background:var(--orange-bg); border-color:var(--orange-bd); color:var(--orange); }
 .badge.expirado  { background:var(--gray-bg);   border-color:var(--border);    color:var(--gray-text); }
-.badge.prof-fixo-badge { background:var(--fixo-bg); border-color:var(--fixo-bd); color:var(--fixo); }
+
 
 /* ══════════════════════════════════════
    LOADING
@@ -358,35 +355,7 @@ td.reservado { cursor: default; }
 
 td.bloqueado { color: var(--red); cursor: not-allowed; font-weight: 700; }
 
-/* ── Professor fixo (área técnica) ── */
-td.prof-fixo {
-  background: var(--fixo-bg) !important;
-  border-left: 3px solid var(--fixo-bd) !important;
-  cursor: default;
-}
-.prof-fixo-nome {
-  display: block; font-weight: 800; font-size: 12px;
-  color: var(--fixo); letter-spacing: .2px;
-}
-.prof-fixo-tag {
-  display: block; font-size: 10px; font-weight: 600;
-  color: var(--fixo); opacity: .75; margin-top: 2px;
-  font-family: 'DM Mono', monospace;
-}
-.prof-fixo-equip {
-  display: block; font-size: 10px; font-weight: 500;
-  color: var(--fixo); opacity: .55; margin-top: 1px;
-  font-family: 'DM Mono', monospace;
-}
-tbody tr:hover td.prof-fixo { background: #ede0ff !important; }
-td.prof-fixo-aberto { cursor: pointer !important; }
-td.prof-fixo-aberto:hover { background: #e4d4ff !important; }
-td.prof-fixo-aberto::after {
-  content: "＋ agendar";
-  display: block; font-size: 9px; font-weight: 700;
-  color: var(--fixo); opacity: .6; margin-top: 3px;
-  font-family: 'DM Mono', monospace; letter-spacing: .3px;
-}
+
 
 td.intervalo-cell {
   background: var(--orange-bg) !important;
@@ -662,7 +631,7 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   .slot-row.bloqueado{ cursor: not-allowed; background: var(--red-bg); }
   .slot-row.intervalo{ cursor: not-allowed; background: var(--orange-bg); }
   .slot-row.expirado { cursor: default; background: #e8e2d8; }
-  .slot-row.prof-fixo { cursor: default; background: var(--fixo-bg); border-left: 3px solid var(--fixo-bd); }
+
 
   .slot-horario { font-family:'DM Mono',monospace; font-size:12px; font-weight:700; color:var(--ink); min-width:90px; }
   .slot-info    { flex:1; margin-left:10px; }
@@ -674,8 +643,7 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   .slot-row.bloqueado .slot-status { color: var(--red); }
   .slot-row.expirado  .slot-status { color: var(--gray-text); font-style:italic; }
   .slot-row.reservado .slot-status { color: var(--blue); }
-  .slot-row.prof-fixo .slot-status { color: var(--fixo); font-weight: 900; }
-  .slot-row.prof-fixo .slot-detalhe { color: var(--fixo); opacity: .7; }
+
 
   .slot-chevron { font-size:16px; color:var(--green); flex-shrink:0; margin-left:6px; }
   .slot-row:not(.livre) .slot-chevron { display:none; }
@@ -753,3 +721,17 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 .equip-row.sem-estoque .fila-equip-btn {
   pointer-events: all; /* só o botão de fila é clicável */
 }
+
+/* ── Badges de equipamentos nas células ── */
+.cell-reserva { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin-bottom: 2px; }
+.cell-reserva:last-child { margin-bottom: 0; }
+.cell-sep { font-size: 9px; font-weight: 900; color: var(--blue); margin-right: 2px; opacity: .6; }
+.eq-badges { display: inline-flex; gap: 3px; align-items: center; }
+.eq-badge {
+  display: inline-block; font-size: 9px; font-weight: 700;
+  padding: 1px 4px; border-radius: 4px; letter-spacing: .2px;
+  font-family: 'DM Mono', monospace;
+}
+.eq-badge.tablet { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+.eq-badge.prata  { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.eq-badge.preto  { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
