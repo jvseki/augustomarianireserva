@@ -750,56 +750,59 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 }
 
 .login-card {
-  background: var(--paper);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 40px var(--shadow);
-  padding: 36px 32px 32px;
-  max-width: 440px;
+  background: #ffffff;
+  border: 2px solid #d0c8b8;
+  border-radius: 20px;
+  box-shadow: 0 12px 48px rgba(50,35,10,.18);
+  padding: 40px 36px 36px;
+  max-width: 460px;
   width: 100%;
   text-align: center;
 }
 
 .login-logo {
-  font-size: 52px;
-  margin-bottom: 12px;
+  font-size: 56px;
+  margin-bottom: 14px;
   line-height: 1;
 }
 
 .login-title {
   font-family: 'DM Sans', sans-serif;
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--ink);
-  margin-bottom: 4px;
+  font-size: 24px;
+  font-weight: 900;
+  color: #1a1610;
+  margin-bottom: 5px;
 }
 
 .login-school {
-  font-size: 13px;
-  color: var(--ink3);
-  margin-bottom: 28px;
+  font-size: 14px;
+  color: #6b5e4a;
+  margin-bottom: 30px;
+  font-weight: 600;
 }
 
 .login-steps {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   text-align: left;
-  margin-bottom: 28px;
+  margin-bottom: 30px;
 }
 
 .step-item {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  gap: 14px;
+  border-radius: 12px;
+  padding: 13px 16px;
 }
+.step-item:nth-child(1) { background: #e8f4ec; border: 1.5px solid #96ceac; }
+.step-item:nth-child(2) { background: #e4edf8; border: 1.5px solid #88aae4; }
+.step-item:nth-child(3) { background: #fff0da; border: 1.5px solid #edb860; }
+.step-item:nth-child(4) { background: #f0e8ff; border: 1.5px solid #c084fc; }
 
 .step-icon {
-  font-size: 22px;
+  font-size: 24px;
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -807,31 +810,34 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 .step-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .step-text strong {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
-  color: var(--ink);
+  color: #1a1610;
 }
 
 .step-text span {
   font-size: 12px;
-  color: var(--ink3);
-  line-height: 1.4;
+  color: #4e4432;
+  line-height: 1.45;
+  font-weight: 500;
 }
 
 .google-btn-wrap {
   display: flex;
   justify-content: center;
   margin-bottom: 12px;
+  margin-top: 4px;
 }
 
 .login-note {
-  font-size: 11px;
-  color: var(--ink3);
-  margin-top: 6px;
+  font-size: 12px;
+  color: #8c8070;
+  margin-top: 8px;
+  font-weight: 500;
 }
 
 /* ══════════════════════════════════════
