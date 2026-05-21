@@ -646,7 +646,7 @@ function renderTabela(dados) {
           td.innerHTML=`<div class="cell-multi">${fmtReservado(celula,coluna,linhaNum)}</div><span class="espera-tag">⏳ lista de espera</span>`;
           reservado++;
           td.style.cursor="pointer";
-          td.onclick=(e)=>{ if(e.target.closest(".meu-badge")) return; abrirModalEspera(coluna,linhaNum,dados); };
+          td.onclick=(e)=>{ if(e.target.closest(".meu-badge")) return; abrirModalEspera(coluna,linhaNum,dadosGlobais); };
         }
       } else {
         td.className="livre";
@@ -815,7 +815,7 @@ function renderHorariosBtns(coluna,dados,linhaPreSel) {
       const nomes=reservas.map(r=>r.nome).join(" + ");
       btn.classList.add("ocupado-slot");
       btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-status">${nomes}</span></div><span style="font-size:10px;color:var(--orange);font-weight:800;white-space:nowrap">⏳ espera</span>`;
-      btn.onclick=()=>abrirModalEspera(coluna,ln,dados);
+      btn.onclick=()=>abrirModalEspera(coluna,ln,dadosGlobais);
     } else {
       let extra="";
       if (temRes) {
@@ -882,8 +882,16 @@ function renderEquipRows(coluna,dados) {
         <button class="qty-btn" onclick="event.stopPropagation();mudaQtd('${tipo}',+1)">+</button>
       </div>`}`;
     if(jaAtivo){row.classList.add("ativo");equipState[tipo].qtd=jaQtd;}
-    if(d>0){row.onclick=()=>toggleEquip(tipo,coluna,dados);row.style.opacity="1";}
-    else{row.classList.add("sem-estoque");row.style.opacity="0.55";row.style.cursor="not-allowed";row.onclick=null;}
+    if(d>0){
+      row.onclick=()=>toggleEquip(tipo,coluna,dados);
+      row.style.opacity="1";
+    } else {
+      row.classList.add("sem-estoque");
+      row.style.opacity="0.7";
+      // Não bloqueia cursor para o botão fila funcionar
+      row.style.cursor="default";
+      row.onclick=null;
+    }
     c.appendChild(row);
   });
 }
@@ -912,8 +920,17 @@ function mudaQtd(tipo,delta) {
   const disp=horariosSelecionados.length>0
     ?dispSelecao(modalDiaColuna,horariosSelecionados,dadosGlobais)
     :{tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
-  equipState[tipo].qtd=Math.max(1,Math.min(disp[tipo],equipState[tipo].qtd+delta));
+  // Garante que nunca ultrapassa o estoque total nem o disponível
+  const maxPermitido = Math.min(disp[tipo], ESTOQUE[tipo].total);
+  equipState[tipo].qtd = Math.max(1, Math.min(maxPermitido, equipState[tipo].qtd+delta));
   document.getElementById(`qty-num-${tipo}`).textContent=equipState[tipo].qtd;
+  // Atualiza o botão + se chegou no limite
+  const row = document.getElementById(`equip-row-${tipo}`);
+  if (row) {
+    const btns = row.querySelectorAll('.qty-btn');
+    if (btns[1]) btns[1].disabled = equipState[tipo].qtd >= maxPermitido;
+    if (btns[0]) btns[0].disabled = equipState[tipo].qtd <= 1;
+  }
 }
 
 async function confirmarAcao() {
@@ -1056,8 +1073,23 @@ function toggleEquipEditar(tipo, maxDisp) {
 function mudaQtdEditar(tipo, delta) {
   const dispAtual = dispSlot(editarColuna, editarLinha, dadosGlobais);
   const dispComMeu = dispAtual[tipo] + (editarEquipState[tipo].ativo ? editarEquipState[tipo].qtd : 0);
-  editarEquipState[tipo].qtd = Math.max(1, Math.min(dispComMeu, editarEquipState[tipo].qtd + delta));
-  document.getElementById(`editar-qty-num-${tipo}`).textContent = editarEquipState[tipo].qtd;
+  const maxPermitido = Math.min(dispComMeu, ESTOQUE[tipo].total);
+  const novoVal = Math.max(0, Math.min(maxPermitido, editarEquipState[tipo].qtd + delta));
+
+  if (novoVal === 0) {
+    // Chegou a 0 — desativa automaticamente o tipo
+    editarEquipState[tipo].ativo = false;
+    editarEquipState[tipo].qtd = 1; // reset para 1 caso ative de novo
+    const row   = document.getElementById(`editar-row-${tipo}`);
+    const check = document.getElementById(`editar-check-${tipo}`);
+    const qw    = document.getElementById(`editar-qty-wrap-${tipo}`);
+    if (row)   row.classList.remove("ativo");
+    if (check) check.textContent = "";
+    if (qw)    qw.style.display = "none";
+  } else {
+    editarEquipState[tipo].qtd = novoVal;
+    document.getElementById(`editar-qty-num-${tipo}`).textContent = novoVal;
+  }
 }
 
 async function cancelarReserva() {
@@ -1099,7 +1131,13 @@ async function salvarEdicao() {
   const err = document.getElementById("editar-error");
   err.textContent = "";
   const sel = Object.keys(editarEquipState).filter(t=>editarEquipState[t].ativo);
-  if (!sel.length) { err.textContent="🎒 Selecione ao menos um equipamento."; return; }
+  if (!sel.length) {
+    // Nenhum equipamento selecionado = cancelar a reserva inteira
+    if (confirm("Nenhum equipamento selecionado. Deseja cancelar sua reserva?")) {
+      await cancelarReserva();
+    }
+    return;
+  }
 
   const ld     = dadosGlobais[editarLinha-1];
   const celVal = ld ? (ld[editarColuna-1]||"") : "";
@@ -1154,11 +1192,19 @@ function showToast(msg,type){
 let esperaColuna=null,esperaLinha=null,esperaEquip=resetEquip();
 
 function abrirFilaParcial(tipo) {
+  if (horariosSelecionados.length === 0) {
+    showToast("⚠️ Selecione um horário antes de entrar na fila.","error-toast");
+    return;
+  }
+  // Fecha o modal de reserva e abre o de fila de espera
   document.getElementById("overlay").classList.remove("open");
-  abrirModalEspera(modalDiaColuna,horariosSelecionados[0]||null,dadosGlobais,tipo);
+  setTimeout(() => {
+    abrirModalEspera(modalDiaColuna, horariosSelecionados[0], dadosGlobais, tipo);
+  }, 200);
 }
 
 function abrirModalEspera(coluna,ln,dados,tipoPreSel=null) {
+  if (!ln) { showToast("⚠️ Selecione um horário primeiro.","error-toast"); return; }
   esperaColuna=coluna;esperaLinha=ln;esperaEquip=resetEquip();
   const h=HORARIOS[ln]||["?","?"];
   const cab=dadosGlobais[0]||[];
@@ -1210,6 +1256,13 @@ function mudaQtdEspera(tipo,delta){
   const max=ESTOQUE[tipo].total;
   esperaEquip[tipo].qtd=Math.max(1,Math.min(max,esperaEquip[tipo].qtd+delta));
   document.getElementById(`espera-qty-num-${tipo}`).textContent=esperaEquip[tipo].qtd;
+  // Atualiza botões de limite
+  const row = document.getElementById(`espera-row-${tipo}`);
+  if (row) {
+    const btns = row.querySelectorAll('.qty-btn');
+    if (btns[1]) btns[1].disabled = esperaEquip[tipo].qtd >= max;
+    if (btns[0]) btns[0].disabled = esperaEquip[tipo].qtd <= 1;
+  }
 }
 
 async function confirmarEspera(){
@@ -1223,7 +1276,8 @@ async function confirmarEspera(){
   const btn=document.getElementById("espera-btn");
   btn.textContent="Salvando...";btn.disabled=true;
   try{
-    const res=await fetchComTimeout(`${API}/espera`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,linha:esperaLinha,coluna:esperaColuna,equipamentos:equipStr})},12000);
+    const emailEspera = usuarioLogado ? usuarioLogado.email : "";
+    const res=await fetchComTimeout(`${API}/espera`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,email:emailEspera,linha:esperaLinha,coluna:esperaColuna,equipamentos:equipStr})},12000);
     if(!res.ok) throw new Error();
     fecharModalEspera();
     showToast(`⏳ ${nome} entrou na lista de espera!`,"success");
