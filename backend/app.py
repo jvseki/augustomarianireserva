@@ -21,7 +21,7 @@ def get_espera_sheet():
         return spreadsheet.worksheet("Espera")
     except Exception:
         ws = spreadsheet.add_worksheet(title="Espera", rows=500, cols=6)
-        ws.append_row(["id", "nome", "linha", "coluna", "equipamentos", "timestamp"])
+        ws.append_row(["id", "nome", "email", "linha", "coluna", "equipamentos", "timestamp"])
         return ws
 
 
@@ -73,6 +73,7 @@ def entrar_espera():
         ws.append_row([
             uid,
             data["nome"],
+            data.get("email", ""),
             int(data["linha"]),
             int(data["coluna"]),
             data["equipamentos"],

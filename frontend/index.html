@@ -16,59 +16,107 @@
      TELA DE BOAS-VINDAS (antes do login)
 ════════════════════════════════════ -->
 <div id="tela-login" class="tela-login">
-  <div class="login-card">
-    <div class="login-logo">💻</div>
-    <h1 class="login-title">Agendamento de Notebooks</h1>
-    <p class="login-school">📚 Laboratório de Informática</p>
+  <div class="login-split">
 
-    <div class="login-steps">
-      <div class="step-item">
-        <span class="step-icon">📅</span>
-        <div class="step-text">
-          <strong>Escolha o dia e horário</strong>
-          <span>Veja os slots disponíveis na agenda semanal</span>
+    <!-- Painel esquerdo — branding (só desktop) -->
+    <div class="login-brand">
+      <div class="login-brand-logo">💻</div>
+      <h1 class="login-brand-title">Agendamento de Notebooks</h1>
+      <p class="login-brand-school">📚 Laboratório de Informática</p>
+      <div class="login-steps">
+        <div class="step-item">
+          <span class="step-icon">📅</span>
+          <div class="step-text">
+            <strong>Escolha o dia e horário</strong>
+            <span>Veja os slots disponíveis na agenda semanal</span>
+          </div>
         </div>
-      </div>
-      <div class="step-item">
-        <span class="step-icon">🎒</span>
-        <div class="step-text">
-          <strong>Selecione os equipamentos</strong>
-          <span>Tablets, notebooks prata ou preto — conforme disponibilidade</span>
+        <div class="step-item">
+          <span class="step-icon">🎒</span>
+          <div class="step-text">
+            <strong>Selecione os equipamentos</strong>
+            <span>Tablets, notebooks prata ou preto — conforme disponibilidade</span>
+          </div>
         </div>
-      </div>
-      <div class="step-item">
-        <span class="step-icon">✏️</span>
-        <div class="step-text">
-          <strong>Confirme sua reserva</strong>
-          <span>Seu nome é preenchido automaticamente pelo login</span>
+        <div class="step-item">
+          <span class="step-icon">✏️</span>
+          <div class="step-text">
+            <strong>Confirme sua reserva</strong>
+            <span>Seu nome é preenchido automaticamente pelo login</span>
+          </div>
         </div>
-      </div>
-      <div class="step-item">
-        <span class="step-icon">🔄</span>
-        <div class="step-text">
-          <strong>Edite ou cancele quando quiser</strong>
-          <span>Só você pode alterar seus próprios agendamentos</span>
+        <div class="step-item">
+          <span class="step-icon">🔄</span>
+          <div class="step-text">
+            <strong>Edite ou cancele quando quiser</strong>
+            <span>Só você pode alterar seus próprios agendamentos</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <div id="google-btn-wrap" class="google-btn-wrap">
-      <div id="g_id_onload"
-        data-client_id="576873631654-hetq46i86be7hn0u8i5qmbi9issh31l8.apps.googleusercontent.com"
-        data-callback="handleGoogleLogin"
-        data-auto_prompt="false">
-      </div>
-      <div class="g_id_signin"
-        data-type="standard"
-        data-shape="pill"
-        data-theme="outline"
-        data-text="signin_with"
-        data-size="large"
-        data-locale="pt-BR"
-        data-logo_alignment="left">
+    <!-- Painel direito — formulário -->
+    <div class="login-form-panel">
+      <div class="login-card">
+        <!-- Mobile only -->
+        <div class="login-logo">💻</div>
+        <h1 class="login-title">Agendamento de Notebooks</h1>
+        <p class="login-school">📚 Laboratório de Informática</p>
+        <div class="login-steps">
+          <div class="step-item">
+            <span class="step-icon">📅</span>
+            <div class="step-text">
+              <strong>Escolha o dia e horário</strong>
+              <span>Veja os slots disponíveis na agenda semanal</span>
+            </div>
+          </div>
+          <div class="step-item">
+            <span class="step-icon">🎒</span>
+            <div class="step-text">
+              <strong>Selecione os equipamentos</strong>
+              <span>Tablets, notebooks prata ou preto — conforme disponibilidade</span>
+            </div>
+          </div>
+          <div class="step-item">
+            <span class="step-icon">✏️</span>
+            <div class="step-text">
+              <strong>Confirme sua reserva</strong>
+              <span>Seu nome é preenchido automaticamente pelo login</span>
+            </div>
+          </div>
+          <div class="step-item">
+            <span class="step-icon">🔄</span>
+            <div class="step-text">
+              <strong>Edite ou cancele quando quiser</strong>
+              <span>Só você pode alterar seus próprios agendamentos</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop only -->
+        <span class="login-card-desktop-title">Bem-vindo(a) 👋</span>
+        <span class="login-card-desktop-sub">Entre com sua conta Gmail institucional<br>para acessar o sistema de agendamento.</span>
+
+        <div id="google-btn-wrap" class="google-btn-wrap">
+          <div id="g_id_onload"
+            data-client_id="576873631654-hetq46i86be7hn0u8i5qmbi9issh31l8.apps.googleusercontent.com"
+            data-callback="handleGoogleLogin"
+            data-auto_prompt="false">
+          </div>
+          <div class="g_id_signin"
+            data-type="standard"
+            data-shape="pill"
+            data-theme="outline"
+            data-text="signin_with"
+            data-size="large"
+            data-locale="pt-BR"
+            data-logo_alignment="left">
+          </div>
+        </div>
+        <p class="login-note">Use sua conta Gmail institucional (gov.br)</p>
       </div>
     </div>
-    <p class="login-note">Use sua conta Gmail institucional (gov.br)</p>
+
   </div>
 </div>
 
@@ -635,13 +683,18 @@ function renderTabela(dados) {
         const reservas=listarReservas(celula);
         const temDisp=dispSlot(coluna,linhaNum,dados);
         const algumDisp=temDisp.tablet>0||temDisp.prata>0||temDisp.preto>0;
+        const minhaResTabela=minhaReservaNaCell(celula);
         if (algumDisp) {
           td.className="livre";
-          const nomes=reservas.map(r=>r.nome).join(" + ");
           const tag=slotDispTag(coluna,linhaNum,dados);
           td.innerHTML=`<div class="cell-multi">${fmtReservado(celula,coluna,linhaNum)}</div><span class="slot-disp">${tag} livre</span>`;
           livre++;
           td.onclick=(e)=>{ if(e.target.closest(".meu-badge")) return; abrirModalDia(coluna,cab[j]||"",dados,linhaNum); };
+        } else if (minhaResTabela) {
+          td.className="reservado";
+          td.innerHTML=`<div class="cell-multi">${fmtReservado(celula,coluna,linhaNum)}</div>`;
+          reservado++;
+          td.style.cursor="default";
         } else {
           td.className="reservado espera-disponivel";
           td.innerHTML=`<div class="cell-multi">${fmtReservado(celula,coluna,linhaNum)}</div><span class="espera-tag">⏳ lista de espera</span>`;
@@ -722,10 +775,15 @@ function renderCards(dados) {
           status=reservas.map(r=>r.nome).join(" + ");
           detalhe=slotDispTag(col,ln,dados)+" ainda livre";
           row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
-        } else {
+        } else if (minhaRes) {
           cls="reservado"; reservadoTotal++;
           status=reservas.map(r=>r.nome).join(" + ");
           detalhe=reservas.map(r=>r.equip).join(" | ");
+        } else {
+          cls="reservado espera-disponivel"; reservadoTotal++;
+          status=reservas.map(r=>r.nome).join(" + ");
+          detalhe="⏳ lista de espera";
+          row.onclick=()=>abrirModalEspera(col,ln,dadosGlobais);
         }
         if (minhaRes) temEdicao=true;
       } else {
@@ -1049,9 +1107,9 @@ function renderEditarEquipRows(coluna, ln) {
         <div class="equip-row-disp">${d} disponíve${d===1?"l":"is"}</div>
       </div>
       <div class="equip-row-qty" id="editar-qty-wrap-${tipo}" style="display:${jaAtivo?"flex":"none"}">
-        <button class="qty-btn" onclick="event.stopPropagation();mudaQtdEditar('${tipo}',-1)">−</button>
+        <button class="qty-btn" id="editar-btn-minus-${tipo}" onclick="event.stopPropagation();mudaQtdEditar('${tipo}',-1)" ${jaQtd<=1?"disabled":""}>−</button>
         <span class="qty-num" id="editar-qty-num-${tipo}">${jaQtd}</span>
-        <button class="qty-btn" onclick="event.stopPropagation();mudaQtdEditar('${tipo}',+1)">+</button>
+        <button class="qty-btn" id="editar-btn-plus-${tipo}" onclick="event.stopPropagation();mudaQtdEditar('${tipo}',+1)" ${jaQtd>=d?"disabled":""}>+</button>
       </div>`;
 
     row.onclick = () => toggleEquipEditar(tipo, d);
@@ -1087,7 +1145,13 @@ function mudaQtdEditar(tipo, delta) {
     if (qw)    qw.style.display = "none";
   } else {
     editarEquipState[tipo].qtd = novoVal;
-    document.getElementById(`editar-qty-num-${tipo}`).textContent = novoVal;
+    const maxP = editarMaxDisp[tipo];
+    const numEl = document.getElementById(`editar-qty-num-${tipo}`);
+    const btnMinus = document.getElementById(`editar-btn-minus-${tipo}`);
+    const btnPlus  = document.getElementById(`editar-btn-plus-${tipo}`);
+    if (numEl) numEl.textContent = novoVal;
+    if (btnMinus) btnMinus.disabled = novoVal <= 1;
+    if (btnPlus)  btnPlus.disabled  = novoVal >= maxP;
   }
 }
 
@@ -1275,7 +1339,7 @@ async function confirmarEspera(){
   const btn=document.getElementById("espera-btn");
   btn.textContent="Salvando...";btn.disabled=true;
   try{
-    const res=await fetchComTimeout(`${API}/espera`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,linha:esperaLinha,coluna:esperaColuna,equipamentos:equipStr})},12000);
+    const res=await fetchComTimeout(`${API}/espera`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,email:usuarioLogado?usuarioLogado.email:"",linha:esperaLinha,coluna:esperaColuna,equipamentos:equipStr})},12000);
     if(!res.ok) throw new Error();
     fecharModalEspera();
     showToast(`⏳ ${nome} entrou na lista de espera!`,"success");

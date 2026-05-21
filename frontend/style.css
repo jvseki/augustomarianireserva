@@ -749,6 +749,149 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   background: var(--bg);
 }
 
+/* Desktop: layout lado a lado (branding | card) */
+@media (min-width: 820px) {
+  .tela-login {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .login-split {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  /* Painel esquerdo — branding */
+  .login-brand {
+    flex: 1;
+    background: var(--hdr);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 60px 56px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Linhas de caderno decorativas no painel */
+  .login-brand::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(90deg, transparent 56px, rgba(200,232,204,.08) 56px, rgba(200,232,204,.08) 58px, transparent 58px),
+      repeating-linear-gradient(transparent, transparent 39px, rgba(200,232,204,.07) 39px, rgba(200,232,204,.07) 40px);
+    pointer-events: none;
+  }
+
+  .login-brand-logo {
+    font-size: 64px;
+    margin-bottom: 24px;
+    line-height: 1;
+  }
+
+  .login-brand-title {
+    font-family: 'Architects Daughter', cursive;
+    font-size: 34px;
+    font-weight: 900;
+    color: #c8e8cc;
+    line-height: 1.2;
+    margin-bottom: 10px;
+  }
+
+  .login-brand-school {
+    font-size: 15px;
+    color: rgba(184, 220, 192, 0.65);
+    font-weight: 600;
+    margin-bottom: 48px;
+    letter-spacing: .2px;
+  }
+
+  /* Steps dentro do painel esquerdo no desktop */
+  .login-brand .login-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    text-align: left;
+    margin-bottom: 0;
+  }
+
+  .login-brand .step-item {
+    background: rgba(255,255,255,.06) !important;
+    border: 1.5px solid rgba(200,232,204,.2) !important;
+    border-radius: 12px;
+    padding: 14px 18px;
+  }
+
+  .login-brand .step-icon { font-size: 22px; }
+
+  .login-brand .step-text strong {
+    font-size: 13px;
+    color: #c8e8cc;
+  }
+
+  .login-brand .step-text span {
+    font-size: 12px;
+    color: rgba(184, 220, 192, 0.7);
+    line-height: 1.5;
+  }
+
+  /* Painel direito — formulário */
+  .login-form-panel {
+    width: 420px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 40px;
+    background: #fffdf7;
+    border-left: 2px solid var(--border);
+  }
+
+  .login-card {
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    max-width: 100%;
+    background: transparent;
+  }
+
+  /* No desktop, esconde logo/título/escola dentro do card (ficam no brand) */
+  .login-card .login-logo,
+  .login-card .login-title,
+  .login-card .login-school,
+  .login-card .login-steps {
+    display: none;
+  }
+
+  .login-card-desktop-title {
+    display: block;
+    font-family: 'Architects Daughter', cursive;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+
+  .login-card-desktop-sub {
+    display: block;
+    font-size: 13px;
+    color: var(--ink2);
+    font-weight: 600;
+    margin-bottom: 32px;
+    line-height: 1.5;
+  }
+}
+
+/* Mobile: mantém layout original em coluna */
+@media (max-width: 819px) {
+  .login-split { display: contents; }
+  .login-brand  { display: none; }
+  .login-form-panel { display: contents; }
+  .login-card-desktop-title,
+  .login-card-desktop-sub { display: none; }
+}
+
 .login-card {
   background: #ffffff;
   border: 2px solid #d0c8b8;
