@@ -305,6 +305,7 @@ let equipState = resetEquip();
 let editarColuna = null;
 let editarLinha  = null;
 let editarEquipState = resetEquip();
+let editarMaxDisp = {tablet:0, prata:0, preto:0}; // máximo fixo calculado ao abrir
 
 function resetEquip() {
   return { tablet:{ativo:false,qtd:1}, prata:{ativo:false,qtd:1}, preto:{ativo:false,qtd:1} };
@@ -1005,6 +1006,14 @@ function abrirModalEditar(coluna, ln) {
   if(m2){editarEquipState.prata.ativo=true; editarEquipState.prata.qtd=parseInt(m2[1]);}
   if(m3){editarEquipState.preto.ativo=true; editarEquipState.preto.qtd=parseInt(m3[1]);}
 
+  // Calcula o máximo disponível UMA VEZ e guarda fixo (disponível atual + o que eu uso)
+  const _dispAtual = dispSlot(coluna, ln, dadosGlobais);
+  editarMaxDisp = {
+    tablet: _dispAtual.tablet + (editarEquipState.tablet.ativo ? editarEquipState.tablet.qtd : 0),
+    prata:  _dispAtual.prata  + (editarEquipState.prata.ativo  ? editarEquipState.prata.qtd  : 0),
+    preto:  _dispAtual.preto  + (editarEquipState.preto.ativo  ? editarEquipState.preto.qtd  : 0),
+  };
+
   const cab = dadosGlobais[0]||[];
   const h   = HORARIOS[ln]||["?","?"];
   const dia = cab[coluna-1]||"";
@@ -1021,17 +1030,9 @@ function renderEditarEquipRows(coluna, ln) {
   const c = document.getElementById("editar-equip-rows");
   c.innerHTML = "";
 
-  // Disponível = total do slot + o que eu mesmo estou usando (pois vou substituir)
-  const dispAtual = dispSlot(coluna, ln, dadosGlobais);
-  const dispComMeu = {
-    tablet: dispAtual.tablet + (editarEquipState.tablet.ativo ? editarEquipState.tablet.qtd : 0),
-    prata:  dispAtual.prata  + (editarEquipState.prata.ativo  ? editarEquipState.prata.qtd  : 0),
-    preto:  dispAtual.preto  + (editarEquipState.preto.ativo  ? editarEquipState.preto.qtd  : 0),
-  };
-
   Object.keys(ESTOQUE).forEach(tipo => {
     const {emoji, nome} = ESTOQUE[tipo];
-    const d = dispComMeu[tipo];
+    const d = editarMaxDisp[tipo]; // máximo fixo — não muda conforme qtd
     const jaAtivo = editarEquipState[tipo].ativo;
     const jaQtd   = editarEquipState[tipo].qtd;
 
@@ -1071,9 +1072,7 @@ function toggleEquipEditar(tipo, maxDisp) {
 }
 
 function mudaQtdEditar(tipo, delta) {
-  const dispAtual = dispSlot(editarColuna, editarLinha, dadosGlobais);
-  const dispComMeu = dispAtual[tipo] + (editarEquipState[tipo].ativo ? editarEquipState[tipo].qtd : 0);
-  const maxPermitido = Math.min(dispComMeu, ESTOQUE[tipo].total);
+  const maxPermitido = editarMaxDisp[tipo]; // sempre fixo, nunca encolhe
   const novoVal = Math.max(0, Math.min(maxPermitido, editarEquipState[tipo].qtd + delta));
 
   if (novoVal === 0) {

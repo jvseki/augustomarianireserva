@@ -79,15 +79,27 @@ def entrar_espera():
         uid = f"{int(time.time())}-{random.randint(100,999)}"
         timestamp = time.strftime("%d/%m/%Y %H:%M")
 
-        ws.append_row([
-            uid,
-            data["nome"],
-            data.get("email", ""),
-            data["linha"],
-            data["coluna"],
-            data["equipamentos"],
-            timestamp
-        ])
+        # Detecta se a aba tem coluna email (7 colunas) ou não (6 colunas)
+        headers = ws.row_values(1)
+        if "email" in headers:
+            ws.append_row([
+                uid,
+                data["nome"],
+                data.get("email", ""),
+                int(data["linha"]),
+                int(data["coluna"]),
+                data["equipamentos"],
+                timestamp
+            ])
+        else:
+            ws.append_row([
+                uid,
+                data["nome"],
+                int(data["linha"]),
+                int(data["coluna"]),
+                data["equipamentos"],
+                timestamp
+            ])
         return jsonify({"status": "ok", "id": uid})
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
@@ -164,9 +176,9 @@ def promover_espera():
             linha  = int(reg["linha"])
             coluna = int(reg["coluna"])
             equip  = reg["equipamentos"]
-            nome   = reg["nome"]
+            nome   = reg.get("nome", "")
             email  = reg.get("email", "")
-            uid    = reg["id"]
+            uid    = reg.get("id", "")
 
             try:
                 cel_atual = agenda_vals[linha - 1][coluna - 1]
