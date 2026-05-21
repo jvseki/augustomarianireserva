@@ -455,7 +455,12 @@ function listarReservas(valor) {
   if (!valor||!valor.includes("|")) return [];
   return valor.split("§").map(bloco=>{
     const p=bloco.split("|");
-    return {nome:p[0].trim(),equip:(p[1]||"").trim()};
+    const rawNome = p[0].trim();
+    // Extrai email se gravado como "Nome [email@x.com]"
+    const emailMatch = rawNome.match(/\[([^\]]+)\]$/);
+    const email = emailMatch ? emailMatch[1] : null;
+    const nome  = emailMatch ? rawNome.replace(/\s*\[[^\]]+\]$/, "").trim() : rawNome;
+    return {nome, email, equip:(p[1]||"").trim()};
   }).filter(r=>r.nome);
 }
 
@@ -463,13 +468,9 @@ function listarReservas(valor) {
 function minhaReservaNaCell(valor) {
   if (!usuarioLogado||!valor) return null;
   const reservas = listarReservas(valor);
-  const primeiroNome = usuarioLogado.nome.split(" ")[0].toLowerCase();
-  const nomeCompleto = usuarioLogado.nome.toLowerCase();
-  return reservas.find(r =>
-    r.nome.toLowerCase() === nomeCompleto ||
-    r.nome.toLowerCase() === primeiroNome ||
-    r.nome.toLowerCase().includes(primeiroNome)
-  ) || null;
+  const meuEmail = usuarioLogado.email.toLowerCase();
+  // Prioriza comparação por email (precisa, independente do nome digitado)
+  return reservas.find(r => r.email && r.email.toLowerCase() === meuEmail) || null;
 }
 
 function dispSlot(coluna,ln,dados) {
@@ -571,11 +572,9 @@ function fmtReservado(valor, coluna, linhaNum) {
   const reservas=listarReservas(valor);
   if (!reservas.length) return `<span>${valor}</span>`;
   return reservas.map((r,i)=>{
-    const ehMeu = usuarioLogado && (
-      r.nome.toLowerCase()===usuarioLogado.nome.toLowerCase() ||
-      r.nome.toLowerCase()===usuarioLogado.nome.split(" ")[0].toLowerCase() ||
-      r.nome.toLowerCase().includes(usuarioLogado.nome.split(" ")[0].toLowerCase())
-    );
+    // Identifica pelo email — preciso e à prova de homônimos
+    const ehMeu = usuarioLogado && r.email &&
+      r.email.toLowerCase() === usuarioLogado.email.toLowerCase();
     const editTag = ehMeu
       ? `<span class="meu-badge" onclick="event.stopPropagation();abrirModalEditar(${coluna},${linhaNum})">✏️ editar</span>`
       : "";
@@ -716,7 +715,7 @@ function renderCards(dados) {
         const reservas=listarReservas(ld[col-1]);
         const temDisp=dispSlot(col,ln,dados);
         const algumDisp=temDisp.tablet>0||temDisp.prata>0||temDisp.preto>0;
-        const minhaRes=minhaReservaNaCell(ld[col-1]);
+        const minhaRes=minhaReservaNaCell(ld[col-1]); // compara por email
         if (algumDisp) {
           cls="livre"; livreTotal++;
           status=reservas.map(r=>r.nome).join(" + ");
@@ -776,7 +775,7 @@ function abrirModalDia(coluna,diaNome,dados,linhaPreSel=null) {
   // Preenche nome automaticamente pelo login
   const nomeInput=document.getElementById("nome-input");
   nomeInput.value=usuarioLogado?usuarioLogado.nome:"";
-  nomeInput.readOnly=false; // professor pode abreviar/editar o nome
+  nomeInput.readOnly=true;
   document.getElementById("error-msg").textContent="";
 
   renderHorariosBtns(coluna,dados,linhaPreSel);
@@ -935,7 +934,9 @@ async function confirmarAcao() {
   }
 
   const equipStr=sel.map(t=>`${equipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
-  const novaReserva=`${nome} | ${equipStr}`;
+  // Grava email entre [] para identificação segura (não aparece na exibição)
+  const tagEmail = usuarioLogado ? ` [${usuarioLogado.email}]` : "";
+  const novaReserva=`${nome}${tagEmail} | ${equipStr}`;
   const btn=document.getElementById("confirm-btn");
   btn.textContent="Salvando...";btn.disabled=true;
 
@@ -1071,12 +1072,14 @@ async function cancelarReserva() {
   btn.textContent="Cancelando..."; btn.disabled=true;
 
   // Remove meu bloco do valor da célula
+  const meuEmailCanc = usuarioLogado.email.toLowerCase();
   const novoValor = celVal.split("§")
     .filter(bloco => {
-      const nome = bloco.split("|")[0].trim().toLowerCase();
-      const meuNome = usuarioLogado.nome.toLowerCase();
-      const meuPrimeiro = usuarioLogado.nome.split(" ")[0].toLowerCase();
-      return nome !== meuNome && nome !== meuPrimeiro && !nome.includes(meuPrimeiro);
+      const rawNome = bloco.split("|")[0].trim();
+      const emailMatch = rawNome.match(/\[([^\]]+)\]$/);
+      const emailBloco = emailMatch ? emailMatch[1].toLowerCase() : null;
+      // Remove só o bloco com o email do usuário logado
+      return !emailBloco || emailBloco !== meuEmailCanc;
     })
     .join(" § ").trim();
 
@@ -1102,14 +1105,16 @@ async function salvarEdicao() {
   const celVal = ld ? (ld[editarColuna-1]||"") : "";
   const nome   = usuarioLogado.nome;
   const equipStr = sel.map(t=>`${editarEquipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
-  const novaEntrada = `${nome} | ${equipStr}`;
+  const tagEmail = usuarioLogado ? ` [${usuarioLogado.email}]` : "";
+  const novaEntrada = `${nome}${tagEmail} | ${equipStr}`;
 
   // Substitui meu bloco pelo novo
+  const meuEmailEdit = usuarioLogado ? usuarioLogado.email.toLowerCase() : null;
   const novoValor = celVal.split("§").map(bloco => {
-    const nomeBloco = bloco.split("|")[0].trim().toLowerCase();
-    const meuNome   = nome.toLowerCase();
-    const meuPrimeiro = nome.split(" ")[0].toLowerCase();
-    if (nomeBloco===meuNome || nomeBloco===meuPrimeiro || nomeBloco.includes(meuPrimeiro))
+    const rawNomeBloco = bloco.split("|")[0].trim();
+    const emailMatch = rawNomeBloco.match(/\[([^\]]+)\]$/);
+    const emailBloco = emailMatch ? emailMatch[1].toLowerCase() : null;
+    if (meuEmailEdit && emailBloco && emailBloco === meuEmailEdit)
       return novaEntrada;
     return bloco.trim();
   }).join(" § ");
