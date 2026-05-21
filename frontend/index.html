@@ -7,11 +7,75 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Agendamento de Notebooks</title>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<div class="page-wrap">
+<!-- ═══════════════════════════════════
+     TELA DE BOAS-VINDAS (antes do login)
+════════════════════════════════════ -->
+<div id="tela-login" class="tela-login">
+  <div class="login-card">
+    <div class="login-logo">💻</div>
+    <h1 class="login-title">Agendamento de Notebooks</h1>
+    <p class="login-school">📚 Laboratório de Informática</p>
+
+    <div class="login-steps">
+      <div class="step-item">
+        <span class="step-icon">📅</span>
+        <div class="step-text">
+          <strong>Escolha o dia e horário</strong>
+          <span>Veja os slots disponíveis na agenda semanal</span>
+        </div>
+      </div>
+      <div class="step-item">
+        <span class="step-icon">🎒</span>
+        <div class="step-text">
+          <strong>Selecione os equipamentos</strong>
+          <span>Tablets, notebooks prata ou preto — conforme disponibilidade</span>
+        </div>
+      </div>
+      <div class="step-item">
+        <span class="step-icon">✏️</span>
+        <div class="step-text">
+          <strong>Confirme sua reserva</strong>
+          <span>Seu nome é preenchido automaticamente pelo login</span>
+        </div>
+      </div>
+      <div class="step-item">
+        <span class="step-icon">🔄</span>
+        <div class="step-text">
+          <strong>Edite ou cancele quando quiser</strong>
+          <span>Só você pode alterar seus próprios agendamentos</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="google-btn-wrap" class="google-btn-wrap">
+      <div id="g_id_onload"
+        data-client_id="576873631654-hetq46i86be7hn0u8i5qmbi9issh31l8.apps.googleusercontent.com"
+        data-callback="handleGoogleLogin"
+        data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin"
+        data-type="standard"
+        data-shape="pill"
+        data-theme="outline"
+        data-text="signin_with"
+        data-size="large"
+        data-locale="pt-BR"
+        data-logo_alignment="left">
+      </div>
+    </div>
+    <p class="login-note">Use sua conta Gmail institucional (gov.br)</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════
+     APP PRINCIPAL (após login)
+════════════════════════════════════ -->
+<div id="app" class="page-wrap" style="display:none">
   <header>
     <div class="header-top">
       <div class="logo-area">
@@ -23,7 +87,8 @@
       </div>
       <div class="header-actions">
         <div class="cal-wrap" id="mini-cal"></div>
-        <button class="refresh-btn" onclick="carregarAgenda()">↺ Atualizar</button>
+        <div class="user-info" id="user-info"></div>
+        <button class="refresh-btn" onclick="carregarAgenda()">↺</button>
       </div>
     </div>
 
@@ -60,18 +125,14 @@
       <div class="pencil-loader">✏️</div>
       <p class="loading-text">Carregando agenda...</p>
     </div>
-
-    <!-- Desktop: tabela normal -->
     <div class="table-wrap" id="table-container" style="display:none">
       <table id="tabela"></table>
     </div>
-
-    <!-- Mobile: cards por dia -->
     <div class="cards-view" id="cards-view"></div>
   </main>
 </div>
 
-<!-- MODAL -->
+<!-- MODAL RESERVA -->
 <div class="overlay" id="overlay">
   <div class="modal">
     <button class="modal-close" onclick="fecharModal()">×</button>
@@ -82,27 +143,43 @@
         <p class="modal-sub" id="modal-sub">Selecione horários e equipamentos</p>
       </div>
     </div>
-
     <div class="input-group">
       <label>👤 Nome do professor(a)</label>
       <input type="text" id="nome-input" placeholder="Nome completo..."
-        autocomplete="name" autocorrect="off" autocapitalize="words"
-        enterkeyhint="next">
+        autocomplete="name" autocorrect="off" autocapitalize="words" enterkeyhint="next" readonly>
     </div>
-
     <div class="sec-label">⏰ Horários — toque para selecionar</div>
     <div id="horarios-lista"></div>
     <div id="resumo-selecao">Nenhum horário selecionado</div>
-
     <div class="sec-label">🎒 Equipamentos — selecione um ou mais</div>
     <div class="equip-rows" id="equip-rows"></div>
-
     <p class="error-msg" id="error-msg"></p>
     <button class="btn-primary" id="confirm-btn" onclick="confirmarAcao()">✔ Confirmar Reserva</button>
   </div>
 </div>
 
-<!-- BANNER DE PROMOÇÃO -->
+<!-- MODAL EDITAR/CANCELAR (agendamentos do próprio usuário) -->
+<div class="overlay" id="overlay-editar">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModalEditar()">×</button>
+    <div class="modal-header">
+      <span class="modal-emoji">✏️</span>
+      <div>
+        <h2 id="editar-title">Minha Reserva</h2>
+        <p class="modal-sub" id="editar-sub"></p>
+      </div>
+    </div>
+    <div class="sec-label">🎒 Equipamentos</div>
+    <div class="equip-rows" id="editar-equip-rows"></div>
+    <p class="error-msg" id="editar-error"></p>
+    <div class="editar-actions">
+      <button class="btn-danger" id="cancelar-btn" onclick="cancelarReserva()">🗑 Cancelar Reserva</button>
+      <button class="btn-primary" id="salvar-editar-btn" onclick="salvarEdicao()">💾 Salvar Alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- BANNER PROMOÇÃO -->
 <div class="promo-banner" id="promo-banner" style="display:none">
   <div class="promo-inner" id="promo-inner"></div>
   <button class="promo-close" onclick="fecharBanner()">×</button>
@@ -121,7 +198,7 @@
     </div>
     <div class="input-group">
       <label>👤 Nome do professor(a)</label>
-      <input type="text" id="espera-nome" placeholder="Nome completo..." autocomplete="name" autocorrect="off" autocapitalize="words">
+      <input type="text" id="espera-nome" placeholder="Nome completo..." autocomplete="name" autocorrect="off" autocapitalize="words" readonly>
     </div>
     <div class="sec-label">🎒 O que você precisa?</div>
     <div class="equip-rows" id="espera-equip-rows"></div>
@@ -145,36 +222,89 @@ const ESTOQUE = {
   preto:  { label:"notebook preto", total:11, emoji:"🖥️", nome:"Note Preto" },
 };
 
-const LINHAS_INTERVALO = new Set([5, 12]); // linha 8 (11:30-12:30) não é intervalo
-
-// (professores fixos removidos — todos agendamentos são livres)
-const PROF_FIXOS = new Set();
-function isCelulaFixaPura() { return false; }
-function tagProfFixo() { return ""; }
-
+const LINHAS_INTERVALO = new Set([5, 12]);
 const HORARIOS = {
-  2:  ["07:00","07:50"],
-  3:  ["07:50","08:40"],
-  4:  ["08:40","09:30"],
-  5:  ["09:30","09:50"],
-  6:  ["09:50","10:40"],
-  7:  ["10:40","11:30"],
-  8:  ["11:30","12:30"],
-  9:  ["12:30","13:20"],
-  10: ["13:20","14:10"],
-  11: ["14:10","15:00"],
-  12: ["15:00","15:20"],
-  13: ["15:20","16:10"],
-  14: ["16:10","17:00"],
-  15: ["17:00","17:50"],
+  2:  ["07:00","07:50"], 3:  ["07:50","08:40"], 4:  ["08:40","09:30"],
+  5:  ["09:30","09:50"], 6:  ["09:50","10:40"], 7:  ["10:40","11:30"],
+  8:  ["11:30","12:30"], 9:  ["12:30","13:20"], 10: ["13:20","14:10"],
+  11: ["14:10","15:00"], 12: ["15:00","15:20"], 13: ["15:20","16:10"],
+  14: ["16:10","17:00"], 15: ["17:00","17:50"],
 };
-
 const DIAS_NOME = ["","Segunda","Terça","Quarta","Quinta","Sexta"];
 
+// ════════════════════════════════════════
+// ESTADO DO USUÁRIO
+// ════════════════════════════════════════
+let usuarioLogado = null; // { nome, email, picture }
+
+function handleGoogleLogin(response) {
+  const payload = parseJwt(response.credential);
+  usuarioLogado = {
+    nome:    payload.name,
+    email:   payload.email,
+    picture: payload.picture,
+  };
+  // Guarda em sessão para não pedir login toda vez
+  sessionStorage.setItem("usuario", JSON.stringify(usuarioLogado));
+  entrarNoApp();
+}
+
+function parseJwt(token) {
+  const base64 = token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+  return JSON.parse(decodeURIComponent(atob(base64).split('').map(c =>
+    '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+}
+
+function entrarNoApp() {
+  document.getElementById("tela-login").style.display = "none";
+  document.getElementById("app").style.display        = "block";
+  renderUserInfo();
+  renderCalendario();
+  carregarAgenda();
+  setInterval(carregarAgenda, 60000);
+}
+
+function renderUserInfo() {
+  const u = usuarioLogado;
+  if (!u) return;
+  const el = document.getElementById("user-info");
+  // Primeiro nome apenas
+  const primeiro = u.nome.split(" ")[0];
+  el.innerHTML = `
+    ${u.picture ? `<img class="user-avatar" src="${u.picture}" alt="${primeiro}">` : ""}
+    <span class="user-nome">${primeiro}</span>
+    <button class="logout-btn" onclick="logout()" title="Sair">↩</button>
+  `;
+}
+
+function logout() {
+  sessionStorage.removeItem("usuario");
+  usuarioLogado = null;
+  document.getElementById("app").style.display        = "none";
+  document.getElementById("tela-login").style.display = "flex";
+}
+
+// Verifica sessão ao carregar
+window.addEventListener("load", () => {
+  const saved = sessionStorage.getItem("usuario");
+  if (saved) {
+    usuarioLogado = JSON.parse(saved);
+    entrarNoApp();
+  }
+});
+
+// ════════════════════════════════════════
+// ESTADO DA AGENDA
+// ════════════════════════════════════════
 let dadosGlobais = [];
 let modalDiaColuna = null;
 let horariosSelecionados = [];
 let equipState = resetEquip();
+
+// Estado do modal de edição
+let editarColuna = null;
+let editarLinha  = null;
+let editarEquipState = resetEquip();
 
 function resetEquip() {
   return { tablet:{ativo:false,qtd:1}, prata:{ativo:false,qtd:1}, preto:{ativo:false,qtd:1} };
@@ -185,54 +315,32 @@ function resetEquip() {
 // ════════════════════════════════════════
 function agora()  { const d=new Date(); return d.getHours()*60+d.getMinutes(); }
 function toMin(s) { const [h,m]=s.split(":").map(Number); return h*60+m; }
-function diaSem() { return new Date().getDay(); } // 0=dom, 1=seg … 5=sex, 6=sab
-function colParaDia(col) { return col - 1; } // col2→1(seg), col6→5(sex)
+function diaSem() { return new Date().getDay(); }
 
-// FIX: se estamos exibindo a semana SEGUINTE (sexta >= 18h / fim de semana),
-// nenhum slot é passado — a semana toda está no futuro
 function ePassadoHoje(coluna, ln) {
   const agr  = new Date();
   const ds   = agr.getDay();
-  const semanaFutura = (ds === 5 && agr.getHours() >= 18) || ds === 6 || ds === 0;
-  if (semanaFutura) return false; // semana que vem: nada é passado
-
-  const hoje = ds; // 1=seg … 5=sex
-  const diaDaColuna = coluna - 1; // col2=1(seg) … col6=5(sex)
-
-  if (diaDaColuna < hoje) return true;   // dia anterior → tudo passado
-  if (diaDaColuna === hoje) {            // hoje → verifica horário
+  const semanaFutura = (ds===5 && agr.getHours()>=18) || ds===6 || ds===0;
+  if (semanaFutura) return false;
+  const hoje = ds;
+  const diaDaColuna = coluna - 1;
+  if (diaDaColuna < hoje) return true;
+  if (diaDaColuna === hoje) {
     const h = HORARIOS[ln];
     return h ? agora() >= toMin(h[1]) : false;
   }
-  return false; // dia futuro → não é passado
+  return false;
 }
 
-// ════════════════════════════════════════
-// SEMANA — retorna seg-sex da semana correta
-// Após sexta 18h → já retorna a semana seguinte
-// ════════════════════════════════════════
 function getSegundaDaSemana() {
   const agr = new Date();
-  const ds  = agr.getDay(); // 0=dom … 6=sab
-
-  // Sexta (5) após 18h OU sábado (6) OU domingo (0) → próxima semana
-  const proximaSemana = (ds === 5 && agr.getHours() >= 18) || ds === 6 || ds === 0;
-
+  const ds  = agr.getDay();
+  const proximaSemana = (ds===5 && agr.getHours()>=18) || ds===6 || ds===0;
   const seg = new Date(agr);
-  if (ds === 0) {
-    // domingo: próxima segunda = +1
-    seg.setDate(agr.getDate() + 1);
-  } else if (ds === 6) {
-    // sábado: próxima segunda = +2
-    seg.setDate(agr.getDate() + 2);
-  } else if (proximaSemana) {
-    // sexta >= 18h: próxima segunda = +3 (sab +1, dom +1, seg +1)
-    seg.setDate(agr.getDate() + 3);
-  } else {
-    // dias normais seg–sex: recua até segunda
-    seg.setDate(agr.getDate() - (ds - 1));
-  }
-
+  if (ds===0)            seg.setDate(agr.getDate()+1);
+  else if (ds===6)       seg.setDate(agr.getDate()+2);
+  else if (proximaSemana) seg.setDate(agr.getDate()+3);
+  else                   seg.setDate(agr.getDate()-(ds-1));
   seg.setHours(0,0,0,0);
   return seg;
 }
@@ -243,36 +351,22 @@ function getSegundaDaSemana() {
 function renderCalendario() {
   const cal = document.getElementById("mini-cal");
   if (!cal) return;
-  const hoje  = new Date();
-  const seg   = getSegundaDaSemana();
+  const hoje = new Date();
+  const seg  = getSegundaDaSemana();
   const abrev = ["Seg","Ter","Qua","Qui","Sex"];
-
   cal.innerHTML = "";
-  for (let d = 0; d < 5; d++) {
+  for (let d=0; d<5; d++) {
     const dt = new Date(seg);
-    dt.setDate(seg.getDate() + d);
-
+    dt.setDate(seg.getDate()+d);
     const div = document.createElement("div");
     div.className = "cal-day";
-    div.dataset.d = d + 1; // 1=seg … 5=sex (para o CSS de cores)
-
-    const isHoje = dt.toDateString() === hoje.toDateString();
+    div.dataset.d = d+1;
+    const isHoje = dt.toDateString()===hoje.toDateString();
     if (isHoje) div.classList.add("hoje");
-
-    const col = d + 2; // seg=col2 … sex=col6
-    const temRes = dadosGlobais.some((row,ri) => ri > 0 && (row[col-1]||"").includes("|"));
-
-    div.innerHTML = `
-      <span class="cal-day-name">${abrev[d]}</span>
-      <span class="cal-day-num">${dt.getDate()}</span>
-      ${temRes ? '<span class="cal-dot"></span>' : ''}
-    `;
-    div.title = `${abrev[d]} ${dt.getDate()}/${dt.getMonth()+1}`;
-    div.onclick = () => {
-      if (!dadosGlobais.length) return;
-      const cab = dadosGlobais[0] || [];
-      abrirModalDia(col, cab[col-1] || abrev[d], dadosGlobais);
-    };
+    const col = d+2;
+    const temRes = dadosGlobais.some((row,ri) => ri>0 && (row[col-1]||"").includes("|"));
+    div.innerHTML=`<span class="cal-day-name">${abrev[d]}</span><span class="cal-day-num">${dt.getDate()}</span>${temRes?'<span class="cal-dot"></span>':""}`;
+    div.onclick = () => { if(!dadosGlobais.length) return; abrirModalDia(col, dadosGlobais[0]?.[col-1]||abrev[d], dadosGlobais); };
     cal.appendChild(div);
   }
 }
@@ -282,264 +376,248 @@ function renderCalendario() {
 // ════════════════════════════════════════
 async function resetarPassadosHoje(dados) {
   const hoje = diaSem();
-  const col  = hoje + 1;
-  if (col < 2 || col > 6) return;
+  const col  = hoje+1;
+  if (col<2||col>6) return;
   for (const [ls,[,fim]] of Object.entries(HORARIOS)) {
     const ln = parseInt(ls);
-    if (agora() < toMin(fim)) continue;
-    const ld = dados[ln-1]; if (!ld) continue;
+    if (agora()<toMin(fim)) continue;
+    const ld = dados[ln-1]; if(!ld) continue;
     const v = (ld[col-1]||"").trim().toUpperCase();
-    // Nunca limpa células de professores fixos
     if (v && v!=="LIVRE" && v!=="BLOQUEADO") {
       try {
-        await fetchComTimeout(`${API}/editar`, {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({linha:ln,coluna:col,valor:""})
-        });
-      } catch(e) {}
+        await fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:ln,coluna:col,valor:""})});
+      } catch(e){}
     }
   }
 }
 
 async function limpezaSexta(dados) {
   const d = new Date();
-  if (d.getDay() !== 5 || d.getHours() < 18) return;
-
+  if (d.getDay()!==5||d.getHours()<18) return;
   const semana = `limpeza_semana_${d.getFullYear()}_${getNumeroSemana(d)}`;
   if (localStorage.getItem(semana)) return;
-
-  console.log("🧹 Limpeza semanal de sexta às 18h — zerando planilha...");
-  const promessas = [];
-  for (let ln=2; ln<=15; ln++) {
+  const promessas=[];
+  for (let ln=2;ln<=15;ln++) {
     const ld=dados[ln-1]; if(!ld) continue;
     if (LINHAS_INTERVALO.has(ln)) continue;
-    for (let col=2; col<=6; col++) {
+    for (let col=2;col<=6;col++) {
       const v=(ld[col-1]||"").trim().toUpperCase();
-      if (v && v!=="LIVRE" && v!=="BLOQUEADO") {
-        promessas.push(
-          fetchComTimeout(`${API}/editar`, {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({linha:ln,coluna:col,valor:""})
-          }).catch(()=>{})
-        );
-      }
+      if (v&&v!=="LIVRE"&&v!=="BLOQUEADO")
+        promessas.push(fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:ln,coluna:col,valor:""})}).catch(()=>{}));
     }
   }
   await Promise.all(promessas);
   localStorage.setItem(semana,"1");
-  console.log("✅ Limpeza semanal concluída.");
 }
 
 function getNumeroSemana(d) {
-  const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-  const dayNum = dt.getUTCDay() || 7;
-  dt.setUTCDate(dt.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(),0,1));
-  return Math.ceil((((dt - yearStart) / 86400000) + 1)/7);
+  const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const dayNum=dt.getUTCDay()||7;
+  dt.setUTCDate(dt.getUTCDate()+4-dayNum);
+  const yearStart=new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+  return Math.ceil((((dt-yearStart)/86400000)+1)/7);
 }
 
-// ════════════════════════════════════════
-// FIX: fetch com timeout para evitar "salvando infinito"
-// ════════════════════════════════════════
-function fetchComTimeout(url, opcoes, timeoutMs = 10000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...opcoes, signal: controller.signal })
-    .then(res => { clearTimeout(timer); return res; })
-    .catch(err => { clearTimeout(timer); throw err; });
+function fetchComTimeout(url,opcoes,timeoutMs=10000) {
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  return fetch(url,{...opcoes,signal:controller.signal})
+    .then(res=>{clearTimeout(timer);return res;})
+    .catch(err=>{clearTimeout(timer);throw err;});
 }
 
 // ════════════════════════════════════════
 // ESTOQUE
 // ════════════════════════════════════════
-// Soma equipamentos de TODAS as reservas da célula (separador §)
-// Formato: "Alberto | 23 notebook prata § Fabrícia | 12 tablets"
 function extrairReserva(valor) {
   if (!valor) return null;
-  const v = valor.trim().toUpperCase();
-  if (!v || v==="BLOQUEADO") return null;
-  // Célula com apenas nome de prof fixa → conta 23 prata automaticamente
-  if (PROF_FIXOS.has(v)) return {tablet:0, prata:23, preto:0};
+  const v=valor.trim().toUpperCase();
+  if (!v||v==="BLOQUEADO") return null;
   if (!valor.includes("|")) return null;
-  const res = {tablet:0, prata:0, preto:0};
+  const res={tablet:0,prata:0,preto:0};
   valor.split("§").forEach(bloco => {
-    const partes = bloco.split("|");
-    if (partes.length < 2) return;
-    // Se o nome antes do | é prof fixa e não tem equipamentos explícitos, conta 23 prata
-    const nomeBloco = partes[0].trim().toUpperCase();
-    if (PROF_FIXOS.has(nomeBloco) && !partes[1].trim()) {
-      res.prata += 23;
-      return;
-    }
+    const partes=bloco.split("|");
+    if (partes.length<2) return;
     partes[1].split("+").forEach(seg => {
-      const m = seg.trim().match(/(\d+)\s*(tablet|notebook prata|notebook preto)/i);
+      const m=seg.trim().match(/(\d+)\s*(tablet|notebook prata|notebook preto)/i);
       if (m) {
-        const n = m[2].toLowerCase();
-        if      (n==="tablet")         res.tablet += parseInt(m[1]);
-        else if (n==="notebook prata") res.prata  += parseInt(m[1]);
-        else if (n==="notebook preto") res.preto  += parseInt(m[1]);
+        const n=m[2].toLowerCase();
+        if      (n==="tablet")         res.tablet+=parseInt(m[1]);
+        else if (n==="notebook prata") res.prata +=parseInt(m[1]);
+        else if (n==="notebook preto") res.preto +=parseInt(m[1]);
       }
     });
   });
   return res;
 }
 
-// Retorna array [{nome, equip}] para exibir cada reserva
 function listarReservas(valor) {
-  if (!valor || !valor.includes("|")) return [];
-  return valor.split("§").map(bloco => {
-    const p = bloco.split("|");
-    return { nome: p[0].trim(), equip: (p[1]||"").trim() };
-  }).filter(r => r.nome);
+  if (!valor||!valor.includes("|")) return [];
+  return valor.split("§").map(bloco=>{
+    const p=bloco.split("|");
+    return {nome:p[0].trim(),equip:(p[1]||"").trim()};
+  }).filter(r=>r.nome);
 }
 
-function dispSlot(coluna, ln, dados) {
-  const ld = dados[ln-1];
-  const base = {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
+// Retorna reserva do usuário logado numa célula (null se não tiver)
+function minhaReservaNaCell(valor) {
+  if (!usuarioLogado||!valor) return null;
+  const reservas = listarReservas(valor);
+  const primeiroNome = usuarioLogado.nome.split(" ")[0].toLowerCase();
+  const nomeCompleto = usuarioLogado.nome.toLowerCase();
+  return reservas.find(r =>
+    r.nome.toLowerCase() === nomeCompleto ||
+    r.nome.toLowerCase() === primeiroNome ||
+    r.nome.toLowerCase().includes(primeiroNome)
+  ) || null;
+}
+
+function dispSlot(coluna,ln,dados) {
+  const ld=dados[ln-1];
+  const base={tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
   if (!ld) return base;
-  const r = extrairReserva(ld[coluna-1]);
+  const r=extrairReserva(ld[coluna-1]);
   if (!r) return base;
-  return { tablet:base.tablet-r.tablet, prata:base.prata-r.prata, preto:base.preto-r.preto };
+  return {tablet:base.tablet-r.tablet,prata:base.prata-r.prata,preto:base.preto-r.preto};
 }
 
-function dispSelecao(coluna, linhas, dados) {
-  if (!linhas || !linhas.length)
-    return {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
-  return linhas.reduce((min, ln) => {
-    const s = dispSlot(coluna, ln, dados);
-    return { tablet:Math.min(min.tablet,s.tablet), prata:Math.min(min.prata,s.prata), preto:Math.min(min.preto,s.preto) };
-  }, {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total});
+function dispSelecao(coluna,linhas,dados) {
+  if (!linhas||!linhas.length) return {tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
+  return linhas.reduce((min,ln)=>{
+    const s=dispSlot(coluna,ln,dados);
+    return {tablet:Math.min(min.tablet,s.tablet),prata:Math.min(min.prata,s.prata),preto:Math.min(min.preto,s.preto)};
+  },{tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total});
 }
 
-// ── FIX: estoque do dia — não mostra zero quando todos os horários passaram ──
-function dispDia(coluna, dados) {
-  // Conta reservas APENAS nos horários que ainda não aconteceram
-  const uso = {tablet:0, prata:0, preto:0};
-  let algumFuturo = false;
-
-  for (let ln=2; ln<=15; ln++) {
-    const ld = dados[ln-1]; if(!ld) continue;
+function dispDia(coluna,dados) {
+  const uso={tablet:0,prata:0,preto:0};
+  let algumFuturo=false;
+  for (let ln=2;ln<=15;ln++) {
+    const ld=dados[ln-1]; if(!ld) continue;
     if (LINHAS_INTERVALO.has(ln)) continue;
-    if (ePassadoHoje(coluna, ln)) continue; // pula passados
-    algumFuturo = true;
-    const r = extrairReserva(ld[coluna-1]);
-    if (r) { uso.tablet+=r.tablet; uso.prata+=r.prata; uso.preto+=r.preto; }
+    if (ePassadoHoje(coluna,ln)) continue;
+    algumFuturo=true;
+    const r=extrairReserva(ld[coluna-1]);
+    if (r) {uso.tablet+=r.tablet;uso.prata+=r.prata;uso.preto+=r.preto;}
   }
-
-  // Se não há mais horários futuros hoje (fim do dia ou dias passados),
-  // mostra o estoque total — os dispositivos já estão disponíveis de volta
-  if (!algumFuturo) {
-    return {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
-  }
-
-  return {
-    tablet: ESTOQUE.tablet.total - uso.tablet,
-    prata:  ESTOQUE.prata.total  - uso.prata,
-    preto:  ESTOQUE.preto.total  - uso.preto
-  };
+  if (!algumFuturo) return {tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
+  return {tablet:ESTOQUE.tablet.total-uso.tablet,prata:ESTOQUE.prata.total-uso.prata,preto:ESTOQUE.preto.total-uso.preto};
 }
 
-function slotDispTag(coluna, ln, dados) {
-  const s = dispSlot(coluna, ln, dados);
-  const p = [];
-  if (s.tablet>0) p.push(`📱${s.tablet}`);
-  if (s.prata >0) p.push(`💻${s.prata}`);
-  if (s.preto >0) p.push(`🖥️${s.preto}`);
-  return p.join(" · ") || "—";
+function slotDispTag(coluna,ln,dados) {
+  const s=dispSlot(coluna,ln,dados);
+  const p=[];
+  if(s.tablet>0) p.push(`📱${s.tablet}`);
+  if(s.prata >0) p.push(`💻${s.prata}`);
+  if(s.preto >0) p.push(`🖥️${s.preto}`);
+  return p.join(" · ")||"—";
 }
 
 // ════════════════════════════════════════
 // CARREGAR
 // ════════════════════════════════════════
 async function carregarAgenda() {
-  document.getElementById("loading").style.display = "flex";
-  document.getElementById("table-container").style.display = "none";
-  document.getElementById("cards-view").innerHTML = "";
+  document.getElementById("loading").style.display="flex";
+  document.getElementById("table-container").style.display="none";
+  document.getElementById("cards-view").innerHTML="";
   try {
-    const r1 = await fetchComTimeout(`${API}/agenda`);
-    const d1 = await r1.json();
+    const r1=await fetchComTimeout(`${API}/agenda`);
+    const d1=await r1.json();
     await limpezaSexta(d1);
     await resetarPassadosHoje(d1);
-    const r2 = await fetchComTimeout(`${API}/agenda`);
-    const dados = await r2.json();
-    dadosGlobais = dados;
-    // Verifica promoções ANTES de renderizar — sem delay visual
+    const r2=await fetchComTimeout(`${API}/agenda`);
+    const dados=await r2.json();
+    dadosGlobais=dados;
     await verificarPromocoes();
-    // Recarrega dados frescos caso alguma promoção tenha ocorrido
-    const r3 = await fetchComTimeout(`${API}/agenda`);
-    const dadosFinal = await r3.json();
-    dadosGlobais = dadosFinal;
+    const r3=await fetchComTimeout(`${API}/agenda`);
+    const dadosFinal=await r3.json();
+    dadosGlobais=dadosFinal;
     renderCalendario();
     renderTabela(dadosFinal);
     renderCards(dadosFinal);
     atualizarStockHeader(dadosFinal);
   } catch(e) {
-    document.getElementById("loading").innerHTML =
-      `<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px;text-align:center">⚠️ Erro ao conectar com o servidor</p>`;
+    document.getElementById("loading").innerHTML=`<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px;text-align:center">⚠️ Erro ao conectar com o servidor</p>`;
   }
 }
 
-// ════════════════════════════════════════
-// STOCK HEADER — sempre mostra o total fixo
-// Os dispositivos voltam após cada aula, não faz sentido descontar
-// ════════════════════════════════════════
 function atualizarStockHeader(_dados) {
-  Object.keys(ESTOQUE).forEach(tipo => {
-    const badge = document.getElementById(`stock-${tipo}`);
-    if (!badge) return;
-    const {emoji, total} = ESTOQUE[tipo];
-    const pl = tipo==="tablet" ? "tablets" : ESTOQUE[tipo].label + "s";
+  Object.keys(ESTOQUE).forEach(tipo=>{
+    const badge=document.getElementById(`stock-${tipo}`);
+    if(!badge) return;
+    const {emoji,total}=ESTOQUE[tipo];
+    const pl=tipo==="tablet"?"tablets":ESTOQUE[tipo].label+"s";
     badge.classList.remove("esgotado");
-    badge.innerHTML = `${emoji} ${total} ${pl}`;
+    badge.innerHTML=`${emoji} ${total} ${pl}`;
   });
 }
 
 // ════════════════════════════════════════
-// RENDER — TABELA DESKTOP
+// RENDER TABELA DESKTOP
 // ════════════════════════════════════════
+function fmtEquipBadges(equip) {
+  if (!equip) return "";
+  const badges=[];
+  const m1=equip.match(/(\d+)\s*tablet/i);
+  const m2=equip.match(/(\d+)\s*notebook prata/i);
+  const m3=equip.match(/(\d+)\s*notebook preto/i);
+  if(m1) badges.push(`<span class="eq-badge tablet">📱${m1[1]}</span>`);
+  if(m2) badges.push(`<span class="eq-badge prata">💻${m2[1]}</span>`);
+  if(m3) badges.push(`<span class="eq-badge preto">🖥️${m3[1]}</span>`);
+  return badges.length?`<span class="eq-badges">${badges.join("")}</span>`:`<span class="cell-equip">${equip}</span>`;
+}
+
+function fmtReservado(valor, coluna, linhaNum) {
+  const reservas=listarReservas(valor);
+  if (!reservas.length) return `<span>${valor}</span>`;
+  return reservas.map((r,i)=>{
+    const ehMeu = usuarioLogado && (
+      r.nome.toLowerCase()===usuarioLogado.nome.toLowerCase() ||
+      r.nome.toLowerCase()===usuarioLogado.nome.split(" ")[0].toLowerCase() ||
+      r.nome.toLowerCase().includes(usuarioLogado.nome.split(" ")[0].toLowerCase())
+    );
+    const editTag = ehMeu
+      ? `<span class="meu-badge" onclick="event.stopPropagation();abrirModalEditar(${coluna},${linhaNum})">✏️ editar</span>`
+      : "";
+    return `<div class="cell-reserva">${i>0?'<span class="cell-sep">+</span>':""}
+      <span class="cell-nome ${ehMeu?"meu-nome":""}">${r.nome}</span>
+      ${fmtEquipBadges(r.equip)}${editTag}</div>`;
+  }).join("");
+}
+
 function renderTabela(dados) {
-  const tabela = document.getElementById("tabela");
-  tabela.innerHTML = "";
-  let livre=0, reservado=0;
-  const cab  = dados[0] || [];
-  const hoje = new Date();
-  const seg  = getSegundaDaSemana();
+  const tabela=document.getElementById("tabela");
+  tabela.innerHTML="";
+  let livre=0,reservado=0;
+  const cab=dados[0]||[];
+  const hoje=new Date();
+  const seg=getSegundaDaSemana();
 
-  dados.forEach((linha, i) => {
-    const tr = document.createElement("tr");
-    const linhaNum = i + 1;
-
-    linha.forEach((celula, j) => {
-      const isHdr = i === 0, isLbl = j === 0;
-      const coluna = j + 1;
-      const td = document.createElement(isHdr ? "th" : "td");
-
+  dados.forEach((linha,i)=>{
+    const tr=document.createElement("tr");
+    const linhaNum=i+1;
+    linha.forEach((celula,j)=>{
+      const isHdr=i===0,isLbl=j===0;
+      const coluna=j+1;
+      const td=document.createElement(isHdr?"th":"td");
       if (isHdr) {
-        if (j === 0) {
-          td.innerText = celula;
-        } else {
-          td.className = "dia-header";
-          td.dataset.dia = coluna;
-
-          // Data calculada a partir da segunda da semana correta
-          const dt = new Date(seg);
-          dt.setDate(seg.getDate() + (j - 1)); // j=1→seg, j=2→ter …
-          const dStr = `${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")}`;
-          const isHoje = dt.toDateString() === hoje.toDateString();
+        if (j===0) { td.innerText=celula; }
+        else {
+          td.className="dia-header"; td.dataset.dia=coluna;
+          const dt=new Date(seg); dt.setDate(seg.getDate()+(j-1));
+          const dStr=`${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")}`;
+          const isHoje=dt.toDateString()===hoje.toDateString();
           if (isHoje) td.classList.add("hoje-col");
-          td.innerHTML = `<span class="th-dia-nome">${celula}</span><span class="th-dia-data">${dStr}${isHoje?" · hoje":""}</span>`;
-          td.onclick = () => abrirModalDia(coluna, celula, dados);
+          td.innerHTML=`<span class="th-dia-nome">${celula}</span><span class="th-dia-data">${dStr}${isHoje?" · hoje":""}</span>`;
+          td.onclick=()=>abrirModalDia(coluna,celula,dados);
         }
         tr.appendChild(td); return;
       }
-
       if (isLbl) { td.className="label-col"; td.innerText=celula; tr.appendChild(td); return; }
 
-      const passado   = ePassadoHoje(coluna, linhaNum);
-      const intervalo = LINHAS_INTERVALO.has(linhaNum);
-      const val = (celula||"").trim().toUpperCase().replace(/\s+/g," ");
+      const passado=ePassadoHoje(coluna,linhaNum);
+      const intervalo=LINHAS_INTERVALO.has(linhaNum);
+      const val=(celula||"").trim().toUpperCase().replace(/\s+/g," ");
 
       if (passado) {
         td.className="expirado"; td.innerHTML="🕐 Passado";
@@ -549,150 +627,125 @@ function renderTabela(dados) {
         td.className="bloqueado"; td.innerText="Bloqueado";
       } else if (val===""||val==="LIVRE") {
         td.className="livre";
-        const tag = slotDispTag(coluna, linhaNum, dados);
-        td.innerHTML = `<span class="livre-label">Livre</span><span class="slot-disp">${tag}</span>`;
+        const tag=slotDispTag(coluna,linhaNum,dados);
+        td.innerHTML=`<span class="livre-label">Livre</span><span class="slot-disp">${tag}</span>`;
         livre++;
-        td.onclick = () => abrirModalDia(coluna, cab[j]||"", dados, linhaNum);
+        td.onclick=()=>abrirModalDia(coluna,cab[j]||"",dados,linhaNum);
       } else if (val.includes("|")) {
-        const reservas = listarReservas(celula);
-        const temDisp  = dispSlot(coluna, linhaNum, dados);
-        const algumDisp = temDisp.tablet>0 || temDisp.prata>0 || temDisp.preto>0;
+        const reservas=listarReservas(celula);
+        const temDisp=dispSlot(coluna,linhaNum,dados);
+        const algumDisp=temDisp.tablet>0||temDisp.prata>0||temDisp.preto>0;
         if (algumDisp) {
-          // Ainda tem equipamento sobrando — pode agendar mais!
           td.className="livre";
-          const nomes = reservas.map(r => r.nome).join(" + ");
-          const tag   = slotDispTag(coluna, linhaNum, dados);
-          td.innerHTML = `<span class="cell-nome">+${nomes}</span><span class="slot-disp">${tag} livre</span>`;
+          const nomes=reservas.map(r=>r.nome).join(" + ");
+          const tag=slotDispTag(coluna,linhaNum,dados);
+          td.innerHTML=`<div class="cell-multi">${fmtReservado(celula,coluna,linhaNum)}</div><span class="slot-disp">${tag} livre</span>`;
           livre++;
-          td.onclick = () => abrirModalDia(coluna, cab[j]||"", dados, linhaNum);
+          td.onclick=(e)=>{ if(e.target.closest(".meu-badge")) return; abrirModalDia(coluna,cab[j]||"",dados,linhaNum); };
         } else {
-          // Totalmente ocupado — clicável para lista de espera
-          td.className="reservado espera-disponivel"; td.innerHTML=fmtReservado(celula) + '<span class="espera-tag">⏳ lista de espera</span>'; reservado++;
+          td.className="reservado espera-disponivel";
+          td.innerHTML=`<div class="cell-multi">${fmtReservado(celula,coluna,linhaNum)}</div><span class="espera-tag">⏳ lista de espera</span>`;
+          reservado++;
           td.style.cursor="pointer";
-          td.onclick = () => abrirModalEspera(coluna, linhaNum, dados);
+          td.onclick=(e)=>{ if(e.target.closest(".meu-badge")) return; abrirModalEspera(coluna,linhaNum,dados); };
         }
       } else {
         td.className="livre";
-        const tag2 = slotDispTag(coluna, linhaNum, dados);
-        td.innerHTML = `<span class="livre-label">Livre</span><span class="slot-disp">${tag2}</span>`;
+        const tag2=slotDispTag(coluna,linhaNum,dados);
+        td.innerHTML=`<span class="livre-label">Livre</span><span class="slot-disp">${tag2}</span>`;
         livre++;
-        td.onclick = () => abrirModalDia(coluna, cab[j]||"", dados, linhaNum);
+        td.onclick=()=>abrirModalDia(coluna,cab[j]||"",dados,linhaNum);
       }
       tr.appendChild(td);
     });
     tabela.appendChild(tr);
   });
 
-  document.getElementById("count-livre").textContent     = livre;
-  document.getElementById("count-reservado").textContent = reservado;
-  document.getElementById("loading").style.display        = "none";
-  document.getElementById("table-container").style.display = "block";
-}
-
-// Exibe múltiplos professores + equipamentos de forma compacta na tabela
-function fmtEquipBadges(equip) {
-  if (!equip) return "";
-  const badges = [];
-  const m1 = equip.match(/(\d+)\s*tablet/i);
-  const m2 = equip.match(/(\d+)\s*notebook prata/i);
-  const m3 = equip.match(/(\d+)\s*notebook preto/i);
-  if (m1) badges.push(`<span class="eq-badge tablet">📱${m1[1]}</span>`);
-  if (m2) badges.push(`<span class="eq-badge prata">💻${m2[1]}</span>`);
-  if (m3) badges.push(`<span class="eq-badge preto">🖥️${m3[1]}</span>`);
-  return badges.length ? `<span class="eq-badges">${badges.join("")}</span>` : `<span class="cell-equip">${equip}</span>`;
-}
-
-function fmtReservado(valor) {
-  const reservas = listarReservas(valor);
-  if (!reservas.length) return `<span>${valor}</span>`;
-  return reservas.map((r, i) =>
-    `<div class="cell-reserva">${i > 0 ? '<span class="cell-sep">+</span>' : ""}<span class="cell-nome">${r.nome}</span>${fmtEquipBadges(r.equip)}</div>`
-  ).join("");
+  document.getElementById("count-livre").textContent=livre;
+  document.getElementById("count-reservado").textContent=reservado;
+  document.getElementById("loading").style.display="none";
+  document.getElementById("table-container").style.display="block";
 }
 
 // ════════════════════════════════════════
-// RENDER — CARDS MOBILE
+// RENDER CARDS MOBILE
 // ════════════════════════════════════════
 function renderCards(dados) {
-  const view = document.getElementById("cards-view");
-  view.innerHTML = "";
-  const cab  = dados[0] || [];
-  const hoje = new Date();
-  const seg  = getSegundaDaSemana();
+  const view=document.getElementById("cards-view");
+  view.innerHTML="";
+  const cab=dados[0]||[];
+  const hoje=new Date();
+  const seg=getSegundaDaSemana();
+  let livreTotal=0,reservadoTotal=0;
 
-  let livreTotal=0, reservadoTotal=0;
+  for (let col=2;col<=6;col++) {
+    const diaNome=cab[col-1]||DIAS_NOME[col-1]||`Dia ${col-1}`;
+    const dt=new Date(seg); dt.setDate(seg.getDate()+(col-2));
+    const dStr=`${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")}`;
+    const isHoje=dt.toDateString()===hoje.toDateString();
 
-  for (let col=2; col<=6; col++) {
-    const diaNome = cab[col-1] || DIAS_NOME[col-1] || `Dia ${col-1}`;
+    const card=document.createElement("div");
+    card.className="day-card"; card.dataset.dia=col;
 
-    const dt = new Date(seg);
-    dt.setDate(seg.getDate() + (col - 2)); // col2→+0(seg), col3→+1(ter)…
-    const dStr = `${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")}`;
-    const isHoje = dt.toDateString() === hoje.toDateString();
+    const hdr=document.createElement("div");
+    hdr.className="day-card-header";
+    hdr.innerHTML=`<div><div class="day-card-nome">${diaNome}</div><div class="day-card-data">${dStr}${isHoje?" · hoje":""}</div></div><span class="day-card-arrow">▼</span>`;
+    hdr.onclick=()=>card.classList.toggle("collapsed");
 
-    const card = document.createElement("div");
-    card.className = "day-card";
-    card.dataset.dia = col;
+    const slots=document.createElement("div");
+    slots.className="day-card-slots";
 
-    const hdr = document.createElement("div");
-    hdr.className = "day-card-header";
-    hdr.innerHTML = `<div><div class="day-card-nome">${diaNome}</div><div class="day-card-data">${dStr}${isHoje?" · hoje":""}</div></div><span class="day-card-arrow">▼</span>`;
-    hdr.onclick = () => { card.classList.toggle("collapsed"); };
+    for (let ln=2;ln<=15;ln++) {
+      const ld=dados[ln-1]; if(!ld) continue;
+      const h=HORARIOS[ln]; if(!h) continue;
+      const val=(ld[col-1]||"").trim().toUpperCase().replace(/\s+/g," ");
+      const passado=ePassadoHoje(col,ln);
+      const intervalo=LINHAS_INTERVALO.has(ln);
+      const row=document.createElement("div");
+      row.className="slot-row";
 
-    const slots = document.createElement("div");
-    slots.className = "day-card-slots";
-
-    for (let ln=2; ln<=15; ln++) {
-      const ld = dados[ln-1]; if(!ld) continue;
-      const h  = HORARIOS[ln]; if(!h) continue;
-      const val = (ld[col-1]||"").trim().toUpperCase().replace(/\s+/g," ");
-      const passado   = ePassadoHoje(col, ln);
-      const intervalo = LINHAS_INTERVALO.has(ln);
-
-      const row = document.createElement("div");
-      row.className = "slot-row";
-
-      let status="", detalhe="", cls="";
-      if (passado)              { cls="expirado";  status="🕐 Passado"; }
-      else if (intervalo)       { cls="intervalo"; status="☕ Intervalo"; }
+      let status="",detalhe="",cls="",temEdicao=false;
+      if (passado)               { cls="expirado"; status="🕐 Passado"; }
+      else if (intervalo)        { cls="intervalo"; status="☕ Intervalo"; }
       else if (val==="BLOQUEADO"){ cls="bloqueado"; status="Bloqueado"; }
       else if (val===""||val==="LIVRE") {
         cls="livre"; status="Livre"; livreTotal++;
-        detalhe = slotDispTag(col, ln, dados);
-        row.onclick = () => abrirModalDia(col, diaNome, dados, ln);
+        detalhe=slotDispTag(col,ln,dados);
+        row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
       } else if (val.includes("|")) {
-        const reservas = listarReservas(ld[col-1]);
-        const temDisp = dispSlot(col, ln, dados);
-        const algumDisp = temDisp.tablet>0 || temDisp.prata>0 || temDisp.preto>0;
-        // Se ainda há equipamento disponível, célula é "parcialmente livre"
+        const reservas=listarReservas(ld[col-1]);
+        const temDisp=dispSlot(col,ln,dados);
+        const algumDisp=temDisp.tablet>0||temDisp.prata>0||temDisp.preto>0;
+        const minhaRes=minhaReservaNaCell(ld[col-1]);
         if (algumDisp) {
           cls="livre"; livreTotal++;
-          status = reservas.map(r => r.nome).join(" + ");
-          detalhe = slotDispTag(col, ln, dados) + " ainda livre";
-          row.onclick = () => abrirModalDia(col, diaNome, dados, ln);
+          status=reservas.map(r=>r.nome).join(" + ");
+          detalhe=slotDispTag(col,ln,dados)+" ainda livre";
+          row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
         } else {
           cls="reservado"; reservadoTotal++;
-          status = reservas.map(r => r.nome).join(" + ");
-          detalhe = reservas.map(r => r.equip).join(" | ");
+          status=reservas.map(r=>r.nome).join(" + ");
+          detalhe=reservas.map(r=>r.equip).join(" | ");
         }
+        if (minhaRes) temEdicao=true;
       } else {
         cls="livre"; status="Livre"; livreTotal++;
-        detalhe = slotDispTag(col, ln, dados);
-        row.onclick = () => abrirModalDia(col, diaNome, dados, ln);
+        detalhe=slotDispTag(col,ln,dados);
+        row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
       }
 
       row.classList.add(cls);
-      row.innerHTML = `
+      row.innerHTML=`
         <span class="slot-horario">${h[0]}–${h[1]}</span>
         <div class="slot-info">
           <div class="slot-status">${status}</div>
-          ${detalhe ? `<div class="slot-detalhe">${detalhe}</div>` : ""}
+          ${detalhe?`<div class="slot-detalhe">${detalhe}</div>`:""}
         </div>
-        ${cls==="livre" ? '<span class="slot-chevron">›</span>' : ""}
+        ${temEdicao?`<button class="slot-editar-btn" onclick="event.stopPropagation();abrirModalEditar(${col},${ln})">✏️</button>`:""}
+        ${cls==="livre"&&!temEdicao?'<span class="slot-chevron">›</span>':""}
       `;
       slots.appendChild(row);
     }
-
     card.appendChild(hdr);
     card.appendChild(slots);
     view.appendChild(card);
@@ -700,54 +753,54 @@ function renderCards(dados) {
 }
 
 // ════════════════════════════════════════
-// MODAL
+// MODAL RESERVA
 // ════════════════════════════════════════
-function abrirModalDia(coluna, diaNome, dados, linhaPreSel=null) {
-  modalDiaColuna = coluna;
-  horariosSelecionados = linhaPreSel ? [linhaPreSel] : [];
-  equipState = resetEquip();
+function abrirModalDia(coluna,diaNome,dados,linhaPreSel=null) {
+  modalDiaColuna=coluna;
+  horariosSelecionados=linhaPreSel?[linhaPreSel]:[];
+  equipState=resetEquip();
 
-  // Avisa se o horário pré-selecionado já tem reservas parciais
-  let subtitulo = "Selecione horários e equipamentos";
+  let subtitulo="Selecione horários e equipamentos";
   if (linhaPreSel) {
-    const ld = dados[linhaPreSel-1];
-    const celVal = ld ? (ld[coluna-1]||"") : "";
+    const ld=dados[linhaPreSel-1];
+    const celVal=ld?(ld[coluna-1]||""):"";
     if (celVal.includes("|")) {
-      const reservas = listarReservas(celVal);
-      const nomes = reservas.map(r => r.nome).join(", ");
-      subtitulo = "\u26a0\ufe0f J\u00e1 reservado por: " + nomes + " \u2014 escolha o que sobrou";
+      const reservas=listarReservas(celVal);
+      const nomes=reservas.map(r=>r.nome).join(", ");
+      subtitulo="⚠️ Já reservado por: "+nomes+" — escolha o que sobrou";
     }
   }
 
-  document.getElementById("modal-title").textContent  = "📅 " + diaNome;
-  document.getElementById("modal-sub").textContent    = subtitulo;
-  document.getElementById("nome-input").value         = "";
-  document.getElementById("error-msg").textContent    = "";
+  document.getElementById("modal-title").textContent="📅 "+diaNome;
+  document.getElementById("modal-sub").textContent=subtitulo;
+  // Preenche nome automaticamente pelo login
+  const nomeInput=document.getElementById("nome-input");
+  nomeInput.value=usuarioLogado?usuarioLogado.nome:"";
+  nomeInput.readOnly=!!usuarioLogado;
+  document.getElementById("error-msg").textContent="";
 
-  renderHorariosBtns(coluna, dados, linhaPreSel);
-  renderEquipRows(coluna, dados);
-
+  renderHorariosBtns(coluna,dados,linhaPreSel);
+  renderEquipRows(coluna,dados);
   document.getElementById("overlay").classList.add("open");
-  setTimeout(() => document.getElementById("nome-input").focus(), 150);
 }
 
-function renderHorariosBtns(coluna, dados, linhaPreSel) {
-  const c = document.getElementById("horarios-lista");
-  c.innerHTML = "";
-  for (let ln=2; ln<=15; ln++) {
+function renderHorariosBtns(coluna,dados,linhaPreSel) {
+  const c=document.getElementById("horarios-lista");
+  c.innerHTML="";
+  for (let ln=2;ln<=15;ln++) {
     const ld=dados[ln-1]; if(!ld) continue;
     const h=HORARIOS[ln]; if(!h) continue;
-    const celVal = ld[coluna-1] || "";
+    const celVal=ld[coluna-1]||"";
     const val=celVal.trim().toUpperCase().replace(/\s+/g," ");
-    const passado   = ePassadoHoje(coluna, ln);
-    const intervalo = LINHAS_INTERVALO.has(ln);
-    const bloqueado = val==="BLOQUEADO" && !intervalo;
-    const temRes    = celVal.includes("|");
-    const disp      = temRes ? dispSlot(coluna, ln, dados) : null;
-    const lotado    = temRes && disp && disp.tablet<=0 && disp.prata<=0 && disp.preto<=0;
+    const passado=ePassadoHoje(coluna,ln);
+    const intervalo=LINHAS_INTERVALO.has(ln);
+    const bloqueado=val==="BLOQUEADO"&&!intervalo;
+    const temRes=celVal.includes("|");
+    const disp=temRes?dispSlot(coluna,ln,dados):null;
+    const lotado=temRes&&disp&&disp.tablet<=0&&disp.prata<=0&&disp.preto<=0;
 
-    const btn = document.createElement("button");
-    btn.className = "horario-btn";
+    const btn=document.createElement("button");
+    btn.className="horario-btn";
 
     if (passado) {
       btn.classList.add("passado"); btn.disabled=true;
@@ -759,68 +812,63 @@ function renderHorariosBtns(coluna, dados, linhaPreSel) {
       btn.classList.add("bloqueado-slot"); btn.disabled=true;
       btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span></div><span class="h-status">bloqueado</span>`;
     } else if (lotado) {
-      // Totalmente ocupado — oferece lista de espera
-      const reservas = listarReservas(celVal);
-      const nomes = reservas.map(r=>r.nome).join(" + ");
+      const reservas=listarReservas(celVal);
+      const nomes=reservas.map(r=>r.nome).join(" + ");
       btn.classList.add("ocupado-slot");
       btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-status">${nomes}</span></div><span style="font-size:10px;color:var(--orange);font-weight:800;white-space:nowrap">⏳ espera</span>`;
-      btn.onclick=()=>abrirModalEspera(coluna, ln, dados);
+      btn.onclick=()=>abrirModalEspera(coluna,ln,dados);
     } else {
-      // Livre ou parcialmente ocupado — pode agendar
-      let extra = "";
+      let extra="";
       if (temRes) {
-        const reservas = listarReservas(celVal);
-        extra = `<span class="h-status" style="color:var(--blue)">+${reservas.map(r=>r.nome).join(" + ")}</span>`;
+        const reservas=listarReservas(celVal);
+        extra=`<span class="h-status" style="color:var(--blue)">+${reservas.map(r=>r.nome).join(" + ")}</span>`;
       }
-      const tag = slotDispTag(coluna, ln, dados);
+      const tag=slotDispTag(coluna,ln,dados);
       btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-disp">${tag}</span>${extra}</div>`;
       if(ln===linhaPreSel) btn.classList.add("selecionado");
-      btn.onclick=()=>toggleHorario(ln, btn, coluna, dados);
+      btn.onclick=()=>toggleHorario(ln,btn,coluna,dados);
     }
     c.appendChild(btn);
   }
   atualizarResumo();
 }
 
-function toggleHorario(ln, btn, coluna, dados) {
+function toggleHorario(ln,btn,coluna,dados) {
   const idx=horariosSelecionados.indexOf(ln);
-  if(idx===-1){ horariosSelecionados.push(ln); btn.classList.add("selecionado"); }
-  else { horariosSelecionados.splice(idx,1); btn.classList.remove("selecionado"); }
+  if(idx===-1){horariosSelecionados.push(ln);btn.classList.add("selecionado");}
+  else{horariosSelecionados.splice(idx,1);btn.classList.remove("selecionado");}
   atualizarResumo();
-  renderEquipRows(coluna||modalDiaColuna, dados||dadosGlobais);
+  renderEquipRows(coluna||modalDiaColuna,dados||dadosGlobais);
 }
 
 function atualizarResumo() {
   const n=horariosSelecionados.length;
-  document.getElementById("resumo-selecao").textContent =
-    n===0 ? "Nenhum horário selecionado" : `${n} horário${n>1?"s":""} selecionado${n>1?"s":""}`;
+  document.getElementById("resumo-selecao").textContent=
+    n===0?"Nenhum horário selecionado":`${n} horário${n>1?"s":""} selecionado${n>1?"s":""}`;
 }
 
-// ── Equipamentos ──
-function renderEquipRows(coluna, dados) {
+function renderEquipRows(coluna,dados) {
   const c=document.getElementById("equip-rows");
   c.innerHTML="";
-  const disp = horariosSelecionados.length > 0
-    ? dispSelecao(coluna, horariosSelecionados, dados)
-    : {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
+  const disp=horariosSelecionados.length>0
+    ?dispSelecao(coluna,horariosSelecionados,dados)
+    :{tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
 
-  Object.keys(ESTOQUE).forEach(tipo => {
+  Object.keys(ESTOQUE).forEach(tipo=>{
     const {emoji,nome}=ESTOQUE[tipo];
-    const d = disp[tipo];
+    const d=disp[tipo];
     const row=document.createElement("div");
     row.className=`equip-row ${tipo}`;
     row.id=`equip-row-${tipo}`;
-    if(d<=0) row.classList.add("sem-estoque");
-    const n = horariosSelecionados.length;
-    const dispLabel = d>0
-      ? `${d} disponíve${d===1?"l":"is"}${n>1?` (mín. entre os ${n} horários)`:""}`
-      : "esgotado neste horário";
-    const jaAtivo = equipState[tipo].ativo && d>0;
-    const jaQtd   = Math.min(equipState[tipo].qtd, d>0?d:1);
-    // Se esgotado: mostra botão de entrar na fila para este tipo específico
-    const filaBtn = d<=0
-      ? `<button class="fila-equip-btn" onclick="event.stopPropagation();abrirFilaParcial('${tipo}')">⏳ fila</button>`
-      : "";
+    const n=horariosSelecionados.length;
+    const dispLabel=d>0
+      ?`${d} disponíve${d===1?"l":"is"}${n>1?` (mín. entre os ${n} horários)`:""}`
+      :"esgotado neste horário";
+    const jaAtivo=equipState[tipo].ativo&&d>0;
+    const jaQtd=Math.min(equipState[tipo].qtd,d>0?d:1);
+    const filaBtn=d<=0
+      ?`<button class="fila-equip-btn" onclick="event.stopPropagation();abrirFilaParcial('${tipo}')">⏳ fila</button>`
+      :"";
 
     row.innerHTML=`
       <div class="equip-row-check" id="check-${tipo}">${jaAtivo?"✔":""}</div>
@@ -829,180 +877,302 @@ function renderEquipRows(coluna, dados) {
         <div class="equip-row-name">${nome}</div>
         <div class="equip-row-disp">${dispLabel}</div>
       </div>
-      ${d<=0 ? filaBtn : `<div class="equip-row-qty" id="qty-wrap-${tipo}" style="display:${jaAtivo?"flex":"none"}">
+      ${d<=0?filaBtn:`<div class="equip-row-qty" id="qty-wrap-${tipo}" style="display:${jaAtivo?"flex":"none"}">
         <button class="qty-btn" onclick="event.stopPropagation();mudaQtd('${tipo}',-1)">−</button>
         <span class="qty-num" id="qty-num-${tipo}">${jaQtd}</span>
         <button class="qty-btn" onclick="event.stopPropagation();mudaQtd('${tipo}',+1)">+</button>
       </div>`}`;
-    if(jaAtivo){ row.classList.add("ativo"); equipState[tipo].qtd=jaQtd; }
-    if(d>0) {
-      row.onclick=()=>toggleEquip(tipo, coluna, dados);
-      row.style.opacity="1";
-    } else {
-      row.classList.add("sem-estoque");
-      row.style.opacity="0.55";
-      row.style.cursor="not-allowed";
-      row.onclick=null;
-    }
+    if(jaAtivo){row.classList.add("ativo");equipState[tipo].qtd=jaQtd;}
+    if(d>0){row.onclick=()=>toggleEquip(tipo,coluna,dados);row.style.opacity="1";}
+    else{row.classList.add("sem-estoque");row.style.opacity="0.55";row.style.cursor="not-allowed";row.onclick=null;}
     c.appendChild(row);
   });
 }
 
-function toggleEquip(tipo, col, dados) {
+function toggleEquip(tipo,col,dados) {
   if(document.getElementById(`equip-row-${tipo}`).classList.contains("sem-estoque")) return;
-  const colUse  = col   || modalDiaColuna;
-  const dadosUse = dados || dadosGlobais;
-  const disp = horariosSelecionados.length>0
-    ? dispSelecao(colUse, horariosSelecionados, dadosUse)
-    : {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
+  const colUse=col||modalDiaColuna;
+  const dadosUse=dados||dadosGlobais;
+  const disp=horariosSelecionados.length>0
+    ?dispSelecao(colUse,horariosSelecionados,dadosUse)
+    :{tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
   equipState[tipo].ativo=!equipState[tipo].ativo;
-  const row  =document.getElementById(`equip-row-${tipo}`);
+  const row=document.getElementById(`equip-row-${tipo}`);
   const check=document.getElementById(`check-${tipo}`);
-  const qw   =document.getElementById(`qty-wrap-${tipo}`);
+  const qw=document.getElementById(`qty-wrap-${tipo}`);
   if(equipState[tipo].ativo){
-    row.classList.add("ativo"); check.textContent="✔"; qw.style.display="flex";
+    row.classList.add("ativo");check.textContent="✔";qw.style.display="flex";
     if(equipState[tipo].qtd>disp[tipo]) equipState[tipo].qtd=Math.max(1,disp[tipo]);
     document.getElementById(`qty-num-${tipo}`).textContent=equipState[tipo].qtd;
   } else {
-    row.classList.remove("ativo"); check.textContent=""; qw.style.display="none";
+    row.classList.remove("ativo");check.textContent="";qw.style.display="none";
   }
 }
 
-function mudaQtd(tipo, delta) {
-  const disp = horariosSelecionados.length>0
-    ? dispSelecao(modalDiaColuna, horariosSelecionados, dadosGlobais)
-    : {tablet:ESTOQUE.tablet.total, prata:ESTOQUE.prata.total, preto:ESTOQUE.preto.total};
-  const novoVal = Math.max(1, Math.min(disp[tipo], equipState[tipo].qtd + delta));
-  equipState[tipo].qtd = novoVal;
-  document.getElementById(`qty-num-${tipo}`).textContent = novoVal;
+function mudaQtd(tipo,delta) {
+  const disp=horariosSelecionados.length>0
+    ?dispSelecao(modalDiaColuna,horariosSelecionados,dadosGlobais)
+    :{tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
+  equipState[tipo].qtd=Math.max(1,Math.min(disp[tipo],equipState[tipo].qtd+delta));
+  document.getElementById(`qty-num-${tipo}`).textContent=equipState[tipo].qtd;
 }
 
-// ════════════════════════════════════════
-// FIX: confirmar com timeout e concatenação de múltiplas reservas
-// ════════════════════════════════════════
 async function confirmarAcao() {
   const nome=document.getElementById("nome-input").value.trim();
   const err=document.getElementById("error-msg");
   err.textContent="";
-
-  if(!nome){ err.textContent="✏️ Digite o nome do professor."; return; }
-  if(horariosSelecionados.length===0){ err.textContent="⏰ Selecione ao menos um horário."; return; }
+  if(!nome){err.textContent="✏️ Digite o nome do professor.";return;}
+  if(horariosSelecionados.length===0){err.textContent="⏰ Selecione ao menos um horário.";return;}
   const sel=Object.keys(equipState).filter(t=>equipState[t].ativo);
-  if(sel.length===0){ err.textContent="🎒 Selecione ao menos um equipamento."; return; }
+  if(sel.length===0){err.textContent="🎒 Selecione ao menos um equipamento.";return;}
 
-  const dispMin=dispSelecao(modalDiaColuna, horariosSelecionados, dadosGlobais);
+  const dispMin=dispSelecao(modalDiaColuna,horariosSelecionados,dadosGlobais);
   for(const t of sel){
     if(equipState[t].qtd>dispMin[t]){
-      err.textContent=`⚠️ Só há ${dispMin[t]} ${ESTOQUE[t].label}(s) disponíveis em todos os horários selecionados.`;
+      err.textContent=`⚠️ Só há ${dispMin[t]} ${ESTOQUE[t].label}(s) disponíveis em todos os horários.`;
       return;
     }
   }
 
   const equipStr=sel.map(t=>`${equipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
   const novaReserva=`${nome} | ${equipStr}`;
-
   const btn=document.getElementById("confirm-btn");
-  btn.textContent="Salvando..."; btn.disabled=true;
+  btn.textContent="Salvando...";btn.disabled=true;
 
-  let salvos=0, erros=0;
+  let salvos=0,erros=0;
   for(const ln of horariosSelecionados){
-    try {
-      // Lê o valor atual da célula para concatenar (suporte multi-reserva)
-      const ld = dadosGlobais[ln-1];
-      const valorAtual = ld ? (ld[modalDiaColuna-1]||"").trim() : "";
-      const vUp = valorAtual.toUpperCase();
-      // Se célula tem só nome de prof fixa, concatena com § (ela não tem |)
-      const valorFinal = (!valorAtual || vUp==="" || vUp==="BLOQUEADO")
-        ? novaReserva
-        : `${valorAtual} § ${novaReserva}`;
-
-      const res = await fetchComTimeout(`${API}/editar`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({linha:ln, coluna:modalDiaColuna, valor:valorFinal})
-      }, 12000);
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    try{
+      const ld=dadosGlobais[ln-1];
+      const valorAtual=ld?(ld[modalDiaColuna-1]||"").trim():"";
+      const vUp=valorAtual.toUpperCase();
+      const valorFinal=(!valorAtual||vUp===""||vUp==="BLOQUEADO")
+        ?novaReserva:`${valorAtual} § ${novaReserva}`;
+      const res=await fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:ln,coluna:modalDiaColuna,valor:valorFinal})},12000);
+      if(!res.ok) throw new Error();
       salvos++;
-    } catch(e) {
-      erros++;
-    }
+    }catch(e){erros++;}
   }
 
-  btn.textContent="✔ Confirmar Reserva"; btn.disabled=false;
-
-  if(erros===0){
-    fecharModal();
-    const n=horariosSelecionados.length;
-    showToast(`✔ ${n} horário${n>1?"s":""} reservado${n>1?"s":""}!`, "success");
-    carregarAgenda();
-  } else if(salvos>0){
-    fecharModal();
-    showToast(`⚠️ ${salvos} salvo(s), ${erros} falhou. Verifique e tente novamente.`, "error-toast");
-    carregarAgenda();
-  } else {
-    showToast("✗ Erro ao salvar. Verifique a conexão e tente novamente.", "error-toast");
-  }
+  btn.textContent="✔ Confirmar Reserva";btn.disabled=false;
+  if(erros===0){fecharModal();showToast(`✔ ${salvos} horário${salvos>1?"s":""} reservado${salvos>1?"s":""}!`,"success");carregarAgenda();}
+  else if(salvos>0){fecharModal();showToast(`⚠️ ${salvos} salvo(s), ${erros} falhou.`,"error-toast");carregarAgenda();}
+  else showToast("✗ Erro ao salvar. Tente novamente.","error-toast");
 }
 
-// ════════════════════════════════════════
-// FECHAR / TOAST
-// ════════════════════════════════════════
 function fecharModal() {
   document.getElementById("overlay").classList.remove("open");
-  horariosSelecionados=[];
-  equipState=resetEquip();
+  horariosSelecionados=[];equipState=resetEquip();
 }
-document.getElementById("overlay").addEventListener("click", function(e){ if(e.target===this) fecharModal(); });
+document.getElementById("overlay").addEventListener("click",function(e){if(e.target===this)fecharModal();});
 
-function showToast(msg, type){
+// ════════════════════════════════════════
+// MODAL EDITAR / CANCELAR
+// ════════════════════════════════════════
+function abrirModalEditar(coluna, ln) {
+  const ld = dadosGlobais[ln-1];
+  if (!ld) return;
+  const celVal = ld[coluna-1] || "";
+  const minhaRes = minhaReservaNaCell(celVal);
+  if (!minhaRes) return;
+
+  editarColuna = coluna;
+  editarLinha  = ln;
+  editarEquipState = resetEquip();
+
+  // Pré-preenche com equipamentos atuais
+  const m1 = minhaRes.equip.match(/(\d+)\s*tablet/i);
+  const m2 = minhaRes.equip.match(/(\d+)\s*notebook prata/i);
+  const m3 = minhaRes.equip.match(/(\d+)\s*notebook preto/i);
+  if(m1){editarEquipState.tablet.ativo=true;editarEquipState.tablet.qtd=parseInt(m1[1]);}
+  if(m2){editarEquipState.prata.ativo=true; editarEquipState.prata.qtd=parseInt(m2[1]);}
+  if(m3){editarEquipState.preto.ativo=true; editarEquipState.preto.qtd=parseInt(m3[1]);}
+
+  const cab = dadosGlobais[0]||[];
+  const h   = HORARIOS[ln]||["?","?"];
+  const dia = cab[coluna-1]||"";
+
+  document.getElementById("editar-title").textContent = "✏️ Minha Reserva";
+  document.getElementById("editar-sub").textContent   = `${dia} · ${h[0]}–${h[1]}`;
+  document.getElementById("editar-error").textContent = "";
+
+  renderEditarEquipRows(coluna, ln);
+  document.getElementById("overlay-editar").classList.add("open");
+}
+
+function renderEditarEquipRows(coluna, ln) {
+  const c = document.getElementById("editar-equip-rows");
+  c.innerHTML = "";
+
+  // Disponível = total do slot + o que eu mesmo estou usando (pois vou substituir)
+  const dispAtual = dispSlot(coluna, ln, dadosGlobais);
+  const dispComMeu = {
+    tablet: dispAtual.tablet + (editarEquipState.tablet.ativo ? editarEquipState.tablet.qtd : 0),
+    prata:  dispAtual.prata  + (editarEquipState.prata.ativo  ? editarEquipState.prata.qtd  : 0),
+    preto:  dispAtual.preto  + (editarEquipState.preto.ativo  ? editarEquipState.preto.qtd  : 0),
+  };
+
+  Object.keys(ESTOQUE).forEach(tipo => {
+    const {emoji, nome} = ESTOQUE[tipo];
+    const d = dispComMeu[tipo];
+    const jaAtivo = editarEquipState[tipo].ativo;
+    const jaQtd   = editarEquipState[tipo].qtd;
+
+    const row = document.createElement("div");
+    row.className = `equip-row ${tipo}`;
+    row.id = `editar-row-${tipo}`;
+    if (jaAtivo) row.classList.add("ativo");
+
+    row.innerHTML = `
+      <div class="equip-row-check" id="editar-check-${tipo}">${jaAtivo?"✔":""}</div>
+      <span class="equip-row-emoji">${emoji}</span>
+      <div class="equip-row-info">
+        <div class="equip-row-name">${nome}</div>
+        <div class="equip-row-disp">${d} disponíve${d===1?"l":"is"}</div>
+      </div>
+      <div class="equip-row-qty" id="editar-qty-wrap-${tipo}" style="display:${jaAtivo?"flex":"none"}">
+        <button class="qty-btn" onclick="event.stopPropagation();mudaQtdEditar('${tipo}',-1)">−</button>
+        <span class="qty-num" id="editar-qty-num-${tipo}">${jaQtd}</span>
+        <button class="qty-btn" onclick="event.stopPropagation();mudaQtdEditar('${tipo}',+1)">+</button>
+      </div>`;
+
+    row.onclick = () => toggleEquipEditar(tipo, d);
+    c.appendChild(row);
+  });
+}
+
+function toggleEquipEditar(tipo, maxDisp) {
+  editarEquipState[tipo].ativo = !editarEquipState[tipo].ativo;
+  const row   = document.getElementById(`editar-row-${tipo}`);
+  const check = document.getElementById(`editar-check-${tipo}`);
+  const qw    = document.getElementById(`editar-qty-wrap-${tipo}`);
+  if (editarEquipState[tipo].ativo) {
+    row.classList.add("ativo"); check.textContent="✔"; qw.style.display="flex";
+  } else {
+    row.classList.remove("ativo"); check.textContent=""; qw.style.display="none";
+  }
+}
+
+function mudaQtdEditar(tipo, delta) {
+  const dispAtual = dispSlot(editarColuna, editarLinha, dadosGlobais);
+  const dispComMeu = dispAtual[tipo] + (editarEquipState[tipo].ativo ? editarEquipState[tipo].qtd : 0);
+  editarEquipState[tipo].qtd = Math.max(1, Math.min(dispComMeu, editarEquipState[tipo].qtd + delta));
+  document.getElementById(`editar-qty-num-${tipo}`).textContent = editarEquipState[tipo].qtd;
+}
+
+async function cancelarReserva() {
+  const err = document.getElementById("editar-error");
+  err.textContent = "";
+  const ld      = dadosGlobais[editarLinha-1];
+  const celVal  = ld ? (ld[editarColuna-1]||"") : "";
+  const minhaRes = minhaReservaNaCell(celVal);
+  if (!minhaRes) return;
+
+  const btn = document.getElementById("cancelar-btn");
+  btn.textContent="Cancelando..."; btn.disabled=true;
+
+  // Remove meu bloco do valor da célula
+  const novoValor = celVal.split("§")
+    .filter(bloco => {
+      const nome = bloco.split("|")[0].trim().toLowerCase();
+      const meuNome = usuarioLogado.nome.toLowerCase();
+      const meuPrimeiro = usuarioLogado.nome.split(" ")[0].toLowerCase();
+      return nome !== meuNome && nome !== meuPrimeiro && !nome.includes(meuPrimeiro);
+    })
+    .join(" § ").trim();
+
+  try {
+    const res = await fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:editarLinha,coluna:editarColuna,valor:novoValor})},12000);
+    if (!res.ok) throw new Error();
+    fecharModalEditar();
+    showToast("🗑 Reserva cancelada com sucesso!","success");
+    carregarAgenda();
+  } catch(e) {
+    err.textContent="✗ Erro ao cancelar. Tente novamente.";
+  }
+  btn.textContent="🗑 Cancelar Reserva"; btn.disabled=false;
+}
+
+async function salvarEdicao() {
+  const err = document.getElementById("editar-error");
+  err.textContent = "";
+  const sel = Object.keys(editarEquipState).filter(t=>editarEquipState[t].ativo);
+  if (!sel.length) { err.textContent="🎒 Selecione ao menos um equipamento."; return; }
+
+  const ld     = dadosGlobais[editarLinha-1];
+  const celVal = ld ? (ld[editarColuna-1]||"") : "";
+  const nome   = usuarioLogado.nome;
+  const equipStr = sel.map(t=>`${editarEquipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
+  const novaEntrada = `${nome} | ${equipStr}`;
+
+  // Substitui meu bloco pelo novo
+  const novoValor = celVal.split("§").map(bloco => {
+    const nomeBloco = bloco.split("|")[0].trim().toLowerCase();
+    const meuNome   = nome.toLowerCase();
+    const meuPrimeiro = nome.split(" ")[0].toLowerCase();
+    if (nomeBloco===meuNome || nomeBloco===meuPrimeiro || nomeBloco.includes(meuPrimeiro))
+      return novaEntrada;
+    return bloco.trim();
+  }).join(" § ");
+
+  const btn = document.getElementById("salvar-editar-btn");
+  btn.textContent="Salvando..."; btn.disabled=true;
+
+  try {
+    const res = await fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:editarLinha,coluna:editarColuna,valor:novoValor})},12000);
+    if (!res.ok) throw new Error();
+    fecharModalEditar();
+    showToast("💾 Reserva atualizada!","success");
+    carregarAgenda();
+  } catch(e) {
+    err.textContent="✗ Erro ao salvar. Tente novamente.";
+  }
+  btn.textContent="💾 Salvar Alterações"; btn.disabled=false;
+}
+
+function fecharModalEditar() {
+  document.getElementById("overlay-editar").classList.remove("open");
+}
+document.getElementById("overlay-editar").addEventListener("click",function(e){if(e.target===this)fecharModalEditar();});
+
+// ════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════
+function showToast(msg,type){
   const t=document.getElementById("toast");
-  t.textContent=msg; t.className=`toast ${type} show`;
-  setTimeout(()=>t.classList.remove("show"), 3500);
+  t.textContent=msg;t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove("show"),3500);
 }
-
 
 // ════════════════════════════════════════
 // LISTA DE ESPERA
 // ════════════════════════════════════════
-let esperaColuna = null;
-let esperaLinha  = null;
-let esperaEquip  = resetEquip();
+let esperaColuna=null,esperaLinha=null,esperaEquip=resetEquip();
 
-
-// Abre modal de espera direto para um tipo específico de equipamento
-// (quando o professor está no modal de reserva e aquele tipo está esgotado)
 function abrirFilaParcial(tipo) {
-  // Fecha modal de reserva
   document.getElementById("overlay").classList.remove("open");
-  // Abre modal de espera com o tipo pré-selecionado
-  abrirModalEspera(modalDiaColuna, horariosSelecionados[0] || null, dadosGlobais, tipo);
+  abrirModalEspera(modalDiaColuna,horariosSelecionados[0]||null,dadosGlobais,tipo);
 }
-function abrirModalEspera(coluna, ln, dados, tipoPreSel=null) {
-  esperaColuna = coluna;
-  esperaLinha  = ln;
-  esperaEquip  = resetEquip();
 
-  const h = HORARIOS[ln] || ["?","?"];
-  const cab = dadosGlobais[0] || [];
-  const diaNome = cab[coluna-1] || "";
+function abrirModalEspera(coluna,ln,dados,tipoPreSel=null) {
+  esperaColuna=coluna;esperaLinha=ln;esperaEquip=resetEquip();
+  const h=HORARIOS[ln]||["?","?"];
+  const cab=dadosGlobais[0]||[];
+  const diaNome=cab[coluna-1]||"";
+  document.getElementById("espera-title").textContent="⏳ Lista de Espera";
+  document.getElementById("espera-sub").textContent=`${diaNome} · ${h[0]}–${h[1]}`;
+  document.getElementById("espera-nome").value=usuarioLogado?usuarioLogado.nome:"";
+  document.getElementById("espera-error").textContent="";
 
-  document.getElementById("espera-title").textContent = "⏳ Lista de Espera";
-  document.getElementById("espera-sub").textContent   = `${diaNome} · ${h[0]}–${h[1]}`;
-  document.getElementById("espera-nome").value        = "";
-  document.getElementById("espera-error").textContent = "";
-
-  // Mostra todos os equipamentos (sem restrição de disponível —
-  // o professor entra na espera para o que precisar)
-  const c = document.getElementById("espera-equip-rows");
-  c.innerHTML = "";
-  Object.keys(ESTOQUE).forEach(tipo => {
-    const {emoji, nome, total} = ESTOQUE[tipo];
-    const row = document.createElement("div");
-    row.className = `equip-row ${tipo}`;
-    row.id = `espera-row-${tipo}`;
-    const preAtivo = tipoPreSel === tipo;
-    if (preAtivo) { esperaEquip[tipo].ativo = true; }
-    row.innerHTML = `
+  const c=document.getElementById("espera-equip-rows");
+  c.innerHTML="";
+  Object.keys(ESTOQUE).forEach(tipo=>{
+    const {emoji,nome,total}=ESTOQUE[tipo];
+    const row=document.createElement("div");
+    row.className=`equip-row ${tipo}`;
+    row.id=`espera-row-${tipo}`;
+    const preAtivo=tipoPreSel===tipo;
+    if(preAtivo){esperaEquip[tipo].ativo=true;}
+    row.innerHTML=`
       <div class="equip-row-check" id="espera-check-${tipo}">${preAtivo?"✔":""}</div>
       <span class="equip-row-emoji">${emoji}</span>
       <div class="equip-row-info">
@@ -1014,114 +1184,85 @@ function abrirModalEspera(coluna, ln, dados, tipoPreSel=null) {
         <span class="qty-num" id="espera-qty-num-${tipo}">1</span>
         <button class="qty-btn" onclick="event.stopPropagation();mudaQtdEspera('${tipo}',+1)">+</button>
       </div>`;
-    if (preAtivo) row.classList.add("ativo");
-    row.onclick = () => toggleEquipEspera(tipo);
+    if(preAtivo) row.classList.add("ativo");
+    row.onclick=()=>toggleEquipEspera(tipo);
     c.appendChild(row);
   });
-
   document.getElementById("overlay-espera").classList.add("open");
-  setTimeout(() => document.getElementById("espera-nome").focus(), 150);
+  setTimeout(()=>document.getElementById("espera-nome").focus(),150);
 }
 
-function toggleEquipEspera(tipo) {
-  esperaEquip[tipo].ativo = !esperaEquip[tipo].ativo;
-  const row   = document.getElementById(`espera-row-${tipo}`);
-  const check = document.getElementById(`espera-check-${tipo}`);
-  const qw    = document.getElementById(`espera-qty-wrap-${tipo}`);
-  if (esperaEquip[tipo].ativo) {
-    row.classList.add("ativo"); check.textContent = "✔"; qw.style.display = "flex";
-  } else {
-    row.classList.remove("ativo"); check.textContent = ""; qw.style.display = "none";
-  }
+function toggleEquipEspera(tipo){
+  esperaEquip[tipo].ativo=!esperaEquip[tipo].ativo;
+  const row=document.getElementById(`espera-row-${tipo}`);
+  const check=document.getElementById(`espera-check-${tipo}`);
+  const qw=document.getElementById(`espera-qty-wrap-${tipo}`);
+  if(esperaEquip[tipo].ativo){row.classList.add("ativo");check.textContent="✔";qw.style.display="flex";}
+  else{row.classList.remove("ativo");check.textContent="";qw.style.display="none";}
 }
 
-function mudaQtdEspera(tipo, delta) {
-  const max = ESTOQUE[tipo].total;
-  esperaEquip[tipo].qtd = Math.max(1, Math.min(max, esperaEquip[tipo].qtd + delta));
-  document.getElementById(`espera-qty-num-${tipo}`).textContent = esperaEquip[tipo].qtd;
+function mudaQtdEspera(tipo,delta){
+  const max=ESTOQUE[tipo].total;
+  esperaEquip[tipo].qtd=Math.max(1,Math.min(max,esperaEquip[tipo].qtd+delta));
+  document.getElementById(`espera-qty-num-${tipo}`).textContent=esperaEquip[tipo].qtd;
 }
 
-async function confirmarEspera() {
-  const nome = document.getElementById("espera-nome").value.trim();
-  const err  = document.getElementById("espera-error");
-  err.textContent = "";
-
-  if (!nome) { err.textContent = "✏️ Digite o nome do professor."; return; }
-  const sel = Object.keys(esperaEquip).filter(t => esperaEquip[t].ativo);
-  if (!sel.length) { err.textContent = "🎒 Selecione ao menos um equipamento."; return; }
-
-  const equipStr = sel.map(t => `${esperaEquip[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
-
-  const btn = document.getElementById("espera-btn");
-  btn.textContent = "Salvando..."; btn.disabled = true;
-
-  try {
-    const res = await fetchComTimeout(`${API}/espera`, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({
-        nome, linha: esperaLinha, coluna: esperaColuna, equipamentos: equipStr
-      })
-    }, 12000);
-    if (!res.ok) throw new Error();
+async function confirmarEspera(){
+  const nome=document.getElementById("espera-nome").value.trim();
+  const err=document.getElementById("espera-error");
+  err.textContent="";
+  if(!nome){err.textContent="✏️ Digite o nome.";return;}
+  const sel=Object.keys(esperaEquip).filter(t=>esperaEquip[t].ativo);
+  if(!sel.length){err.textContent="🎒 Selecione ao menos um equipamento.";return;}
+  const equipStr=sel.map(t=>`${esperaEquip[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
+  const btn=document.getElementById("espera-btn");
+  btn.textContent="Salvando...";btn.disabled=true;
+  try{
+    const res=await fetchComTimeout(`${API}/espera`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,linha:esperaLinha,coluna:esperaColuna,equipamentos:equipStr})},12000);
+    if(!res.ok) throw new Error();
     fecharModalEspera();
-    showToast(`⏳ ${nome} entrou na lista de espera!`, "success");
-  } catch(e) {
-    err.textContent = "✗ Erro ao salvar. Tente novamente.";
-  }
-
-  btn.textContent = "⏳ Entrar na Lista de Espera"; btn.disabled = false;
+    showToast(`⏳ ${nome} entrou na lista de espera!`,"success");
+  }catch(e){err.textContent="✗ Erro ao salvar. Tente novamente.";}
+  btn.textContent="⏳ Entrar na Lista de Espera";btn.disabled=false;
 }
 
-function fecharModalEspera() {
-  document.getElementById("overlay-espera").classList.remove("open");
-}
-document.getElementById("overlay-espera").addEventListener("click", function(e){
-  if (e.target === this) fecharModalEspera();
-});
+function fecharModalEspera(){document.getElementById("overlay-espera").classList.remove("open");}
+document.getElementById("overlay-espera").addEventListener("click",function(e){if(e.target===this)fecharModalEspera();});
 
 // ════════════════════════════════════════
-// VERIFICAÇÃO E PROMOÇÃO AUTOMÁTICA
+// PROMOÇÕES
 // ════════════════════════════════════════
-async function verificarPromocoes() {
-  try {
-    const res = await fetchComTimeout(`${API}/promover`, {method:"POST"}, 15000);
-    const data = await res.json();
-    if (data.promovidos && data.promovidos.length > 0) {
-      mostrarBannerPromocao(data.promovidos);
-    }
-  } catch(e) { /* silencioso */ }
+async function verificarPromocoes(){
+  try{
+    const res=await fetchComTimeout(`${API}/promover`,{method:"POST"},15000);
+    const data=await res.json();
+    if(data.promovidos&&data.promovidos.length>0) mostrarBannerPromocao(data.promovidos);
+  }catch(e){}
 }
 
-function mostrarBannerPromocao(promovidos) {
-  const banner = document.getElementById("promo-banner");
-  const inner  = document.getElementById("promo-inner");
-  const cab    = dadosGlobais[0] || [];
-  const DIAS_ABV = ["","Seg","Ter","Qua","Qui","Sex"];
-
-  const itens = promovidos.map(p => {
-    const h   = HORARIOS[p.linha] || ["?","?"];
-    const dia = cab[p.coluna-1] || DIAS_ABV[p.coluna-1] || "";
+function mostrarBannerPromocao(promovidos){
+  const banner=document.getElementById("promo-banner");
+  const inner=document.getElementById("promo-inner");
+  const cab=dadosGlobais[0]||[];
+  const DIAS_ABV=["","Seg","Ter","Qua","Qui","Sex"];
+  const itens=promovidos.map(p=>{
+    const h=HORARIOS[p.linha]||["?","?"];
+    const dia=cab[p.coluna-1]||DIAS_ABV[p.coluna-1]||"";
     return `<strong>${p.nome}</strong> — ${dia} ${h[0]}–${h[1]} · ${p.equipamentos}`;
   }).join("<br>");
-
-  inner.innerHTML = `✅ Promovido da lista de espera:<br>${itens}`;
-  banner.style.display = "flex";
-
-  // Some automaticamente após 12 segundos
-  setTimeout(fecharBanner, 12000);
+  inner.innerHTML=`✅ Promovido da lista de espera:<br>${itens}`;
+  banner.style.display="flex";
+  setTimeout(fecharBanner,12000);
 }
 
-function fecharBanner() {
-  document.getElementById("promo-banner").style.display = "none";
-}
+function fecharBanner(){document.getElementById("promo-banner").style.display="none";}
 
-// ════════════════════════════════════════
-// INIT
-// ════════════════════════════════════════
-renderCalendario();
-carregarAgenda();
-setInterval(carregarAgenda, 60000);
+// ESC fecha qualquer modal aberto
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"){
+    fecharModal(); fecharModalEditar(); fecharModalEspera();
+  }
+});
 </script>
 </body>
 </html>
