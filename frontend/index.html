@@ -146,7 +146,7 @@
     <div class="input-group">
       <label>👤 Nome do professor(a)</label>
       <input type="text" id="nome-input" placeholder="Nome completo..."
-        autocomplete="name" autocorrect="off" autocapitalize="words" enterkeyhint="next" readonly>
+        autocomplete="name" autocorrect="off" autocapitalize="words" enterkeyhint="next">
     </div>
     <div class="sec-label">⏰ Horários — toque para selecionar</div>
     <div id="horarios-lista"></div>
@@ -198,7 +198,7 @@
     </div>
     <div class="input-group">
       <label>👤 Nome do professor(a)</label>
-      <input type="text" id="espera-nome" placeholder="Nome completo..." autocomplete="name" autocorrect="off" autocapitalize="words" readonly>
+      <input type="text" id="espera-nome" placeholder="Nome completo..." autocomplete="name" autocorrect="off" autocapitalize="words">
     </div>
     <div class="sec-label">🎒 O que você precisa?</div>
     <div class="equip-rows" id="espera-equip-rows"></div>
@@ -776,7 +776,7 @@ function abrirModalDia(coluna,diaNome,dados,linhaPreSel=null) {
   // Preenche nome automaticamente pelo login
   const nomeInput=document.getElementById("nome-input");
   nomeInput.value=usuarioLogado?usuarioLogado.nome:"";
-  nomeInput.readOnly=!!usuarioLogado;
+  nomeInput.readOnly=false; // professor pode abreviar/editar o nome
   document.getElementById("error-msg").textContent="";
 
   renderHorariosBtns(coluna,dados,linhaPreSel);
