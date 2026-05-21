@@ -1275,8 +1275,7 @@ async function confirmarEspera(){
   const btn=document.getElementById("espera-btn");
   btn.textContent="Salvando...";btn.disabled=true;
   try{
-    const emailEspera = usuarioLogado ? usuarioLogado.email : "";
-    const res=await fetchComTimeout(`${API}/espera`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,email:emailEspera,linha:esperaLinha,coluna:esperaColuna,equipamentos:equipStr})},12000);
+    const res=await fetchComTimeout(`${API}/espera`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,linha:esperaLinha,coluna:esperaColuna,equipamentos:equipStr})},12000);
     if(!res.ok) throw new Error();
     fecharModalEspera();
     showToast(`⏳ ${nome} entrou na lista de espera!`,"success");

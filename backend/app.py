@@ -15,23 +15,14 @@ except Exception as e:
 SHEET_ID = "1uixhu6rN03HrMy-1ECf2U-Gr5bpKkbbiToiHGMOglk0"
 
 def get_espera_sheet():
-    """Retorna a aba 'Espera', criando-a se não existir. Migra colunas se necessário."""
+    """Retorna a aba 'Espera', criando-a se não existir."""
     spreadsheet = client.open_by_key(SHEET_ID)
     try:
-        ws = spreadsheet.worksheet("Espera")
+        return spreadsheet.worksheet("Espera")
     except Exception:
-        ws = spreadsheet.add_worksheet(title="Espera", rows=500, cols=7)
-        ws.append_row(["id", "nome", "email", "linha", "coluna", "equipamentos", "timestamp"])
+        ws = spreadsheet.add_worksheet(title="Espera", rows=500, cols=6)
+        ws.append_row(["id", "nome", "linha", "coluna", "equipamentos", "timestamp"])
         return ws
-
-    # Migração: garante que a coluna 'email' existe no cabeçalho
-    headers = ws.row_values(1)
-    if "email" not in headers:
-        # Insere coluna email na posição 3 (após nome)
-        ws.insert_cols([[""]], col=3)
-        ws.update_cell(1, 3, "email")
-
-    return ws
 
 
 @app.route("/")
@@ -79,27 +70,14 @@ def entrar_espera():
         uid = f"{int(time.time())}-{random.randint(100,999)}"
         timestamp = time.strftime("%d/%m/%Y %H:%M")
 
-        # Detecta se a aba tem coluna email (7 colunas) ou não (6 colunas)
-        headers = ws.row_values(1)
-        if "email" in headers:
-            ws.append_row([
-                uid,
-                data["nome"],
-                data.get("email", ""),
-                int(data["linha"]),
-                int(data["coluna"]),
-                data["equipamentos"],
-                timestamp
-            ])
-        else:
-            ws.append_row([
-                uid,
-                data["nome"],
-                int(data["linha"]),
-                int(data["coluna"]),
-                data["equipamentos"],
-                timestamp
-            ])
+        ws.append_row([
+            uid,
+            data["nome"],
+            int(data["linha"]),
+            int(data["coluna"]),
+            data["equipamentos"],
+            timestamp
+        ])
         return jsonify({"status": "ok", "id": uid})
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
@@ -177,7 +155,6 @@ def promover_espera():
             coluna = int(reg["coluna"])
             equip  = reg["equipamentos"]
             nome   = reg.get("nome", "")
-            email  = reg.get("email", "")
             uid    = reg.get("id", "")
 
             try:
@@ -205,13 +182,11 @@ def promover_espera():
             if not cabe:
                 continue  # ainda não tem espaço suficiente
 
-            # Cabe! Promove — inclui [email] para identificação pelo frontend
-            tag_email = f" [{email}]" if email else ""
-            entrada = f"{nome}{tag_email} | {equip}"
+            # Cabe! Promove
             if not cel_atual.strip() or cel_up == "":
-                novo_valor = entrada
+                novo_valor = f"{nome} | {equip}"
             else:
-                novo_valor = f"{cel_atual} § {entrada}"
+                novo_valor = f"{cel_atual} § {nome} | {equip}"
 
             sheet.update_cell(linha, coluna, novo_valor)
             # Atualiza cache local para os próximos da fila
