@@ -15,12 +15,21 @@ except Exception as e:
 SHEET_ID = "1uixhu6rN03HrMy-1ECf2U-Gr5bpKkbbiToiHGMOglk0"
 
 def get_espera_sheet():
-    """Retorna a aba 'Espera', criando-a se não existir."""
+    """Retorna a aba 'Espera', criando-a se não existir.
+    Garante também que o cabeçalho tenha a coluna 'email' (migração de abas antigas).
+    """
     spreadsheet = client.open_by_key(SHEET_ID)
     try:
-        return spreadsheet.worksheet("Espera")
+        ws = spreadsheet.worksheet("Espera")
+        # Migração: garante que o cabeçalho tenha 7 colunas com email
+        header = ws.row_values(1)
+        if header and "email" not in header:
+            # Insere coluna email na posição 3 (após nome)
+            ws.insert_cols([[""]] * 1, 3)
+            ws.update_cell(1, 3, "email")
+        return ws
     except Exception:
-        ws = spreadsheet.add_worksheet(title="Espera", rows=500, cols=6)
+        ws = spreadsheet.add_worksheet(title="Espera", rows=500, cols=7)
         ws.append_row(["id", "nome", "email", "linha", "coluna", "equipamentos", "timestamp"])
         return ws
 
@@ -140,23 +149,50 @@ def promover_espera():
     """
     Verifica se há espaço suficiente para cada item da lista de espera
     considerando APENAS os equipamentos pedidos — não exige slot totalmente livre.
-    Ex: Marcos quer 23 pratas → verifica se sobrou 23 pratas, independente
-    de outros equipamentos ainda ocupados pelo Luís.
+    Usa get_all_values() com mapeamento por cabeçalho para ser robusto
+    mesmo com abas legadas ou em migração.
     """
     try:
         ws = get_espera_sheet()
-        registros = ws.get_all_records()
-        promovidos = []
 
+        # Lê todas as linhas incluindo cabeçalho e mapeia colunas pelo nome
+        todas_linhas = ws.get_all_values()
+        if not todas_linhas:
+            return jsonify({"promovidos": []})
+
+        header = todas_linhas[0]
+        def col_idx(nome_col):
+            try: return header.index(nome_col)
+            except ValueError: return None
+
+        idx_id    = col_idx("id")
+        idx_nome  = col_idx("nome")
+        idx_linha = col_idx("linha")
+        idx_col   = col_idx("coluna")
+        idx_equip = col_idx("equipamentos")
+
+        # Valida que os campos essenciais existem no cabeçalho
+        if None in (idx_id, idx_nome, idx_linha, idx_col, idx_equip):
+            return jsonify({"erro": "Cabeçalho da aba Espera inválido", "header": header}), 500
+
+        registros_raw = todas_linhas[1:]  # pula cabeçalho
+        print(f"[promover] {len(registros_raw)} item(s) na fila | header: {header}")
+
+        promovidos = []
         agenda_vals = sheet.get_all_values()
 
         # Processa cada item da espera em ordem (FIFO)
-        for reg in registros:
-            linha  = int(reg["linha"])
-            coluna = int(reg["coluna"])
-            equip  = reg["equipamentos"]
-            nome   = reg.get("nome", "")
-            uid    = reg.get("id", "")
+        for reg_row in registros_raw:
+            if not reg_row or not reg_row[idx_id]:
+                continue  # linha vazia
+            try:
+                uid    = reg_row[idx_id]
+                nome   = reg_row[idx_nome]
+                linha  = int(reg_row[idx_linha])
+                coluna = int(reg_row[idx_col])
+                equip  = reg_row[idx_equip]
+            except (ValueError, IndexError):
+                continue  # linha corrompida, pula
 
             try:
                 cel_atual = agenda_vals[linha - 1][coluna - 1]
@@ -204,6 +240,7 @@ def promover_espera():
                     ws.delete_rows(i + 1)
                     break
 
+            print(f"[promover] ✅ Promovido: {nome} → linha {linha}, col {coluna}, equip: {equip}")
             promovidos.append({
                 "nome": nome,
                 "linha": linha,
