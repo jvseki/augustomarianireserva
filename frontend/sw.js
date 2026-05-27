@@ -1,35 +1,36 @@
 // ══════════════════════════════════════
 // Service Worker — Agendamento de Notebooks
-// Estratégia: cache para assets estáticos,
-//             network-first para a API
+// v3 — index.html NUNCA é cacheado
+//      (sempre pega versão mais recente do Vercel)
 // ══════════════════════════════════════
 
-const CACHE_NAME = "notebooks-v2";
+const CACHE_NAME = "notebooks-v3";
 
+// Só cacheia assets que mudam raramente (fontes, css, ícones)
+// index.html é EXCLUÍDO propositalmente
 const ASSETS_ESTATICOS = [
-  "/",
-  "/index.html",
   "/style.css",
   "/manifest.json",
+  "/icon-192.png",
+  "/icon-512.png",
   "https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap"
 ];
 
-// ── Mensagens da página (ex: SKIP_WAITING para forçar update) ──
+// ── Mensagens da página (SKIP_WAITING para forçar update) ──
 self.addEventListener("message", event => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
 });
 
-// ── Instalação: pré-cache dos assets ──
+// ── Instalação ──
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      // Ignora falhas individuais (ex: fontes offline durante install)
-      return Promise.allSettled(
+    caches.open(CACHE_NAME).then(cache =>
+      Promise.allSettled(
         ASSETS_ESTATICOS.map(url => cache.add(url).catch(() => {}))
-      );
-    })
+      )
+    )
   );
   self.skipWaiting();
 });
@@ -39,21 +40,30 @@ self.addEventListener("activate", event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
-        keys
-          .filter(k => k !== CACHE_NAME)
-          .map(k => caches.delete(k))
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
       )
     )
   );
   self.clients.claim();
 });
 
-// ── Fetch: network-first para API, cache-first para o resto ──
+// ── Fetch ──
 self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
 
-  // API do backend — sempre tenta a rede, nunca cacheamos respostas da API
-  if (url.hostname.includes("onrender.com") || url.pathname.startsWith("/agenda")) {
+  // index.html — SEMPRE rede, nunca cache
+  // Garante que o app sempre carrega a versão mais recente
+  if (url.pathname === "/" || url.pathname === "/index.html") {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.match("/index.html").then(c => c || new Response("Offline", { status: 503 }))
+      )
+    );
+    return;
+  }
+
+  // API do backend — sempre rede
+  if (url.hostname.includes("onrender.com")) {
     event.respondWith(
       fetch(event.request).catch(() =>
         new Response(
@@ -71,12 +81,11 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // Assets estáticos — cache first, fallback rede
+  // Demais assets (css, fontes, ícones) — cache first, fallback rede
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        // Só cacheia respostas válidas de assets
         if (response && response.status === 200 && response.type !== "opaque") {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
