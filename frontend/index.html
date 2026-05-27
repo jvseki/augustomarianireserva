@@ -14,6 +14,14 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>Agendamento de Notebooks</title>
   <script>
+    // Desregistra TODOS os SWs antigos e limpa caches antes de registrar o novo
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
+      });
+      caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+    }
+
     // Registra o Service Worker para PWA e detecta updates
     let swRegistration = null;
 
