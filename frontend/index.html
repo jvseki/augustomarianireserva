@@ -457,21 +457,31 @@ function resetEquip() {
 // TEMPO
 // ════════════════════════════════════════
 function agora()  { const d=new Date(); return d.getHours()*60+d.getMinutes(); }
-function toMin(s) { const [h,m]=s.split(":").map(Number); return h*60+m; }
+function toMin(s) {
+  const parts = (s||"").split(":");
+  return parseInt(parts[0]||0)*60 + parseInt(parts[1]||0);
+}
 function diaSem() { return new Date().getDay(); }
 
 function ePassadoHoje(coluna, ln) {
   const agr  = new Date();
-  const ds   = agr.getDay();
+  const ds   = agr.getDay(); // 0=dom,1=seg,2=ter,3=qua,4=qui,5=sex,6=sab
+  // Fim de semana ou sexta noite → exibe semana seguinte, nada é passado
   const semanaFutura = (ds===5 && agr.getHours()>=18) || ds===6 || ds===0;
   if (semanaFutura) return false;
-  const hoje = ds;
+  // col 2=seg(ds=1), col 3=ter(ds=2)... col 6=sex(ds=5)
+  // diaDaColuna: col 2→1, col 3→2, col 4→3, col 5→4, col 6→5
   const diaDaColuna = coluna - 1;
-  if (diaDaColuna < hoje) return true;
-  if (diaDaColuna === hoje) {
+  // Dias anteriores ao de hoje são sempre passados
+  if (diaDaColuna < ds) return true;
+  // Hoje: verifica se o horário específico já passou
+  if (diaDaColuna === ds) {
     const h = HORARIOS[ln];
-    return h ? agora() >= toMin(h[1]) : false;
+    if (!h) return false;
+    const agoraMins = new Date().getHours()*60 + new Date().getMinutes();
+    return agoraMins >= parseInt(h[1].split(':')[0])*60 + parseInt(h[1].split(':')[1]);
   }
+  // Dias futuros: nunca passado
   return false;
 }
 
@@ -831,7 +841,8 @@ function renderCards(dados) {
   const view=document.getElementById("cards-view");
   view.innerHTML="";
   const cab=dados[0]||[];
-  const hoje=new Date();
+  const agora_d=new Date();
+  const hoje=new Date(agora_d.getFullYear(), agora_d.getMonth(), agora_d.getDate()); // meia-noite local
   const seg=getSegundaDaSemana();
   let livreTotal=0,reservadoTotal=0;
 
@@ -839,7 +850,8 @@ function renderCards(dados) {
     const diaNome=cab[col-1]||DIAS_NOME[col-1]||`Dia ${col-1}`;
     const dt=new Date(seg); dt.setDate(seg.getDate()+(col-2));
     const dStr=`${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")}`;
-    const isHoje=dt.toDateString()===hoje.toDateString();
+    // Compara só a data (ano/mes/dia) sem depender de toDateString que varia por locale
+    const isHoje = dt.getFullYear()===hoje.getFullYear() && dt.getMonth()===hoje.getMonth() && dt.getDate()===hoje.getDate();
 
     const card=document.createElement("div");
     card.className="day-card"; card.dataset.dia=col;
