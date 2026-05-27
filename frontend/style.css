@@ -1239,3 +1239,59 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   .install-section { margin-top: 20px; }
   .install-btn { font-size: 12px; padding: 10px 16px; min-height: 42px; }
 }
+
+/* ══════════════════════════════════════
+   PWA — BOTÃO E BANNER DE ATUALIZAÇÃO
+══════════════════════════════════════ */
+.update-app-btn {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  animation: pulse-update 2s infinite;
+}
+@keyframes pulse-update {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .75; }
+}
+
+.update-banner {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  flex-wrap: wrap;
+}
+.update-banner button {
+  background: rgba(255,255,255,.25);
+  border: 1.5px solid rgba(255,255,255,.6);
+  color: #fff;
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+}
+.update-banner button:active { background: rgba(255,255,255,.4); }
+.update-banner-close {
+  background: transparent !important;
+  border: none !important;
+  font-size: 16px !important;
+  padding: 2px 6px !important;
+  opacity: .7;
+}

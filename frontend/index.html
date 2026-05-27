@@ -14,11 +14,50 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <title>Agendamento de Notebooks</title>
   <script>
-    // Registra o Service Worker para PWA
+    // Registra o Service Worker para PWA e detecta updates
+    let swRegistration = null;
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.register('/sw.js').then(reg => {
+          swRegistration = reg;
+
+          // Já tem um SW esperando (update chegou antes do load)
+          if (reg.waiting) mostrarBotaoUpdate();
+
+          // SW novo instalado enquanto a página estava aberta
+          reg.addEventListener('updatefound', () => {
+            const novoSW = reg.installing;
+            novoSW.addEventListener('statechange', () => {
+              if (novoSW.state === 'installed' && navigator.serviceWorker.controller) {
+                mostrarBotaoUpdate();
+              }
+            });
+          });
+        }).catch(() => {});
+
+        // Recarrega automaticamente quando o novo SW assume o controle
+        let atualizando = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!atualizando) { atualizando = true; window.location.reload(); }
+        });
       });
+    }
+
+    function mostrarBotaoUpdate() {
+      const btn = document.getElementById('update-app-btn');
+      const banner = document.getElementById('update-banner');
+      if (btn) btn.style.display = 'flex';
+      if (banner) banner.style.display = 'flex';
+    }
+
+    function atualizarApp() {
+      if (swRegistration && swRegistration.waiting) {
+        // Manda o novo SW assumir o controle
+        swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      } else {
+        window.location.reload();
+      }
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -185,8 +224,16 @@
       <div class="header-actions">
         <div class="cal-wrap" id="mini-cal"></div>
         <div class="user-info" id="user-info"></div>
-        <button class="refresh-btn" onclick="carregarAgenda()">↺</button>
+        <button class="refresh-btn" title="Atualizar agenda" onclick="carregarAgenda()">↺</button>
+        <button class="update-app-btn" id="update-app-btn" style="display:none" title="Nova versão disponível" onclick="atualizarApp()">⬆ Atualizar</button>
       </div>
+    </div>
+
+    <!-- Banner de nova versão disponível -->
+    <div class="update-banner" id="update-banner" style="display:none">
+      <span>🆕 Nova versão do app disponível!</span>
+      <button onclick="atualizarApp()">Atualizar agora</button>
+      <button class="update-banner-close" onclick="document.getElementById('update-banner').style.display='none'">✕</button>
     </div>
 
     <div class="stats-row">
@@ -433,15 +480,25 @@ function ePassadoHoje(coluna, ln) {
 }
 
 function getSegundaDaSemana() {
+  // Usa horário local explícito para evitar bug de timezone em mobile
   const agr = new Date();
-  const ds  = agr.getDay();
-  const proximaSemana = (ds===5 && agr.getHours()>=18) || ds===6 || ds===0;
+  const ds  = agr.getDay(); // 0=dom, 1=seg ... 6=sab
   const seg = new Date(agr);
-  if (ds===0)            seg.setDate(agr.getDate()+1);
-  else if (ds===6)       seg.setDate(agr.getDate()+2);
-  else if (proximaSemana) seg.setDate(agr.getDate()+3);
-  else                   seg.setDate(agr.getDate()-(ds-1));
-  seg.setHours(0,0,0,0);
+  seg.setHours(0, 0, 0, 0);
+
+  if (ds === 0) {
+    // Domingo → próxima segunda (+1)
+    seg.setDate(agr.getDate() + 1);
+  } else if (ds === 6) {
+    // Sábado → próxima segunda (+2)
+    seg.setDate(agr.getDate() + 2);
+  } else if (ds === 5 && agr.getHours() >= 18) {
+    // Sexta após 18h → próxima segunda (+3)
+    seg.setDate(agr.getDate() + 3);
+  } else {
+    // Segunda a sexta (dentro do horário) → segunda desta semana
+    seg.setDate(agr.getDate() - (ds - 1));
+  }
   return seg;
 }
 
