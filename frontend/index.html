@@ -908,6 +908,14 @@ function renderCards(dados) {
       `;
       slots.appendChild(row);
     }
+    // Colapsa automaticamente dias 100% passados; expande hoje
+    const todosPassados = Array.from(slots.querySelectorAll('.slot-row'))
+      .filter(r => !r.classList.contains('intervalo'))
+      .every(r => r.classList.contains('expirado'));
+
+    if (todosPassados) card.classList.add('collapsed');
+    if (isHoje)        card.classList.remove('collapsed');
+
     card.appendChild(hdr);
     card.appendChild(slots);
     view.appendChild(card);
