@@ -32,7 +32,6 @@ self.addEventListener("install", event => {
       )
     )
   );
-  self.skipWaiting();
 });
 
 // ── Ativação: limpa caches antigos ──

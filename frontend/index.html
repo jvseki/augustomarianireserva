@@ -16,6 +16,7 @@
   <script>
     // Registra o Service Worker para PWA e detecta updates
     let swRegistration = null;
+    let aguardandoReloadPorUpdate = false;
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -23,19 +24,23 @@
           swRegistration = reg;
 
           // Já tem um SW esperando (update chegou antes do load)
-          if (reg.waiting) mostrarBotaoUpdate();
+          if (reg.waiting) iniciarAtualizacaoAutomatica(reg);
 
           // SW novo instalado enquanto a página estava aberta
           reg.addEventListener('updatefound', () => {
             const novoSW = reg.installing;
             novoSW.addEventListener('statechange', () => {
               if (novoSW.state === 'installed' && navigator.serviceWorker.controller) {
-                mostrarBotaoUpdate();
+                iniciarAtualizacaoAutomatica(reg);
               }
             });
           });
         }).catch(() => {});
 
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!aguardandoReloadPorUpdate) return;
+          window.location.reload();
+        });
 
       });
     }
@@ -50,10 +55,19 @@
     function atualizarApp() {
       if (swRegistration && swRegistration.waiting) {
         // Manda o novo SW assumir o controle
+        aguardandoReloadPorUpdate = true;
         swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
       } else {
         window.location.reload();
       }
+    }
+
+    function iniciarAtualizacaoAutomatica(registro) {
+      const temWaiting = registro && registro.waiting;
+      if (!temWaiting) return;
+      mostrarBotaoUpdate();
+      aguardandoReloadPorUpdate = true;
+      registro.waiting.postMessage({ type: 'SKIP_WAITING' });
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -627,11 +641,18 @@ function listarReservas(valor) {
   }).filter(r=>r.nome);
 }
 
+function getEmailUsuarioLogado() {
+  return (usuarioLogado && typeof usuarioLogado.email === "string")
+    ? usuarioLogado.email.toLowerCase()
+    : "";
+}
+
 // Retorna reserva do usuário logado numa célula (null se não tiver)
 function minhaReservaNaCell(valor) {
   if (!usuarioLogado||!valor) return null;
   const reservas = listarReservas(valor);
-  const meuEmail = usuarioLogado.email.toLowerCase();
+  const meuEmail = getEmailUsuarioLogado();
+  if (!meuEmail) return null;
   // Prioriza comparação por email (precisa, independente do nome digitado)
   return reservas.find(r => r.email && r.email.toLowerCase() === meuEmail) || null;
 }
@@ -686,14 +707,17 @@ async function carregarAgenda() {
   document.getElementById("cards-view").innerHTML="";
   try {
     const r1=await fetchComTimeout(`${API}/agenda`);
+    if (!r1.ok) throw new Error("Falha ao carregar agenda inicial");
     const d1=await r1.json();
     await limpezaSexta(d1);
     await resetarPassadosHoje(d1);
     const r2=await fetchComTimeout(`${API}/agenda`);
+    if (!r2.ok) throw new Error("Falha ao recarregar agenda");
     const dados=await r2.json();
     dadosGlobais=dados;
     await verificarPromocoes();
     const r3=await fetchComTimeout(`${API}/agenda`);
+    if (!r3.ok) throw new Error("Falha ao carregar agenda final");
     const dadosFinal=await r3.json();
     dadosGlobais=dadosFinal;
     renderCalendario();
@@ -733,11 +757,12 @@ function fmtEquipBadges(equip) {
 
 function fmtReservado(valor, coluna, linhaNum) {
   const reservas=listarReservas(valor);
+  const meuEmail = getEmailUsuarioLogado();
   if (!reservas.length) return `<span>${valor}</span>`;
   return reservas.map((r,i)=>{
     // Identifica pelo email — preciso e à prova de homônimos
-    const ehMeu = usuarioLogado && r.email &&
-      r.email.toLowerCase() === usuarioLogado.email.toLowerCase();
+    const ehMeu = !!(meuEmail && r.email &&
+      r.email.toLowerCase() === meuEmail);
     const editTag = ehMeu
       ? `<span class="meu-badge" onclick="event.stopPropagation();abrirModalEditar(${coluna},${linhaNum})">✏️ editar</span>`
       : "";
@@ -858,7 +883,7 @@ function renderCards(dados) {
 
     const hdr=document.createElement("div");
     hdr.className="day-card-header";
-    hdr.innerHTML=`<div><div class="day-card-nome">${diaNome}</div><div class="day-card-data">${dStr}${isHoje?" · hoje":""}</div></div><span class="day-card-arrow">▼</span>`;
+    hdr.innerHTML=`<div class="day-card-headtext"><div class="day-card-nome">${diaNome}</div><div class="day-card-data">${dStr}${isHoje?" · hoje":""}</div></div><span class="day-card-arrow">▼</span>`;
     hdr.onclick=()=>card.classList.toggle("collapsed");
 
     const slots=document.createElement("div");
@@ -932,7 +957,14 @@ function renderCards(dados) {
     // Colapsa se todos os slots reais (não intervalo) são passados
     // Hoje nunca colapsa, independente do horário
     const todosPassados = slotsNaoIntervalo > 0 && slotsPassados === slotsNaoIntervalo;
-    if (todosPassados && !isHoje) card.classList.add('collapsed');
+    if (todosPassados && !isHoje) {
+      card.classList.add("collapsed");
+      const hint = document.createElement("div");
+      hint.className = "day-card-hint";
+      hint.textContent = "Dia encerrado - toque para abrir";
+      const head = hdr.querySelector(".day-card-headtext");
+      if (head) head.appendChild(hint);
+    }
 
     card.appendChild(hdr);
     card.appendChild(slots);
@@ -1141,7 +1173,7 @@ async function confirmarAcao() {
 
   const equipStr=sel.map(t=>`${equipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
   // Grava email entre [] para identificação segura (não aparece na exibição)
-  const tagEmail = usuarioLogado ? ` [${usuarioLogado.email}]` : "";
+  const tagEmail = (usuarioLogado && usuarioLogado.email) ? ` [${usuarioLogado.email}]` : "";
   const novaReserva=`${nome}${tagEmail} | ${equipStr}`;
   const btn=document.getElementById("confirm-btn");
   btn.textContent="Salvando...";btn.disabled=true;
@@ -1297,7 +1329,12 @@ async function cancelarReserva() {
   btn.textContent="Cancelando..."; btn.disabled=true;
 
   // Remove meu bloco do valor da célula
-  const meuEmailCanc = usuarioLogado.email.toLowerCase();
+  const meuEmailCanc = getEmailUsuarioLogado();
+  if (!meuEmailCanc) {
+    err.textContent = "✗ Não foi possível validar o usuário logado.";
+    btn.textContent="🗑 Cancelar Reserva"; btn.disabled=false;
+    return;
+  }
   const novoValor = celVal.split("§")
     .filter(bloco => {
       const rawNome = bloco.split("|")[0].trim();
@@ -1336,11 +1373,11 @@ async function salvarEdicao() {
   const celVal = ld ? (ld[editarColuna-1]||"") : "";
   const nome   = usuarioLogado.nome;
   const equipStr = sel.map(t=>`${editarEquipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
-  const tagEmail = usuarioLogado ? ` [${usuarioLogado.email}]` : "";
+  const tagEmail = (usuarioLogado && usuarioLogado.email) ? ` [${usuarioLogado.email}]` : "";
   const novaEntrada = `${nome}${tagEmail} | ${equipStr}`;
 
   // Substitui meu bloco pelo novo
-  const meuEmailEdit = usuarioLogado ? usuarioLogado.email.toLowerCase() : null;
+  const meuEmailEdit = getEmailUsuarioLogado() || null;
   const novoValor = celVal.split("§").map(bloco => {
     const rawNomeBloco = bloco.split("|")[0].trim();
     const emailMatch = rawNomeBloco.match(/\[([^\]]+)\]$/);

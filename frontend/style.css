@@ -613,6 +613,18 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 
   .day-card-nome { font-size: 18px; font-weight: 900; color: #fff; }
   .day-card-data { font-size: 11px; color: rgba(255,255,255,.65); font-family:'DM Mono',monospace; margin-top:2px; }
+  .day-card-headtext { display: flex; flex-direction: column; gap: 3px; }
+  .day-card-hint {
+    display: inline-flex;
+    width: fit-content;
+    font-size: 10px;
+    font-weight: 800;
+    color: #fef3c7;
+    background: rgba(0,0,0,.22);
+    border: 1px solid rgba(254,243,199,.5);
+    border-radius: 999px;
+    padding: 2px 8px;
+  }
   .day-card-arrow { font-size: 18px; color: rgba(255,255,255,.7); transition: transform .2s; }
   .day-card.collapsed .day-card-arrow { transform: rotate(-90deg); }
   .day-card.collapsed .day-card-slots { display: none; }
