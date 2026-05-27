@@ -603,10 +603,17 @@ function fetchComTimeout(url,opcoes,timeoutMs=10000) {
     .catch(err=>{clearTimeout(timer);throw err;});
 }
 
+function celulaComoTexto(valor) {
+  if (typeof valor === "string") return valor;
+  if (valor === null || valor === undefined) return "";
+  return String(valor);
+}
+
 // ════════════════════════════════════════
 // ESTOQUE
 // ════════════════════════════════════════
 function extrairReserva(valor) {
+  valor = celulaComoTexto(valor);
   if (!valor) return null;
   const v=valor.trim().toUpperCase();
   if (!v||v==="BLOQUEADO") return null;
@@ -629,6 +636,7 @@ function extrairReserva(valor) {
 }
 
 function listarReservas(valor) {
+  valor = celulaComoTexto(valor);
   if (!valor||!valor.includes("|")) return [];
   return valor.split("§").map(bloco=>{
     const p=bloco.split("|");
@@ -649,6 +657,7 @@ function getEmailUsuarioLogado() {
 
 // Retorna reserva do usuário logado numa célula (null se não tiver)
 function minhaReservaNaCell(valor) {
+  valor = celulaComoTexto(valor);
   if (!usuarioLogado||!valor) return null;
   const reservas = listarReservas(valor);
   const meuEmail = getEmailUsuarioLogado();
@@ -756,6 +765,7 @@ function fmtEquipBadges(equip) {
 }
 
 function fmtReservado(valor, coluna, linhaNum) {
+  valor = celulaComoTexto(valor);
   const reservas=listarReservas(valor);
   const meuEmail = getEmailUsuarioLogado();
   if (!reservas.length) return `<span>${valor}</span>`;
@@ -895,7 +905,8 @@ function renderCards(dados) {
     for (let ln=2;ln<=15;ln++) {
       const ld=dados[ln-1]; if(!ld) continue;
       const h=HORARIOS[ln]; if(!h) continue;
-      const val=(ld[col-1]||"").trim().toUpperCase().replace(/\s+/g," ");
+      const cellRaw = celulaComoTexto(ld[col-1]);
+      const val=cellRaw.trim().toUpperCase().replace(/\s+/g," ");
       const passado=ePassadoHoje(col,ln);
       const intervalo=LINHAS_INTERVALO.has(ln);
       const row=document.createElement("div");
@@ -910,10 +921,10 @@ function renderCards(dados) {
         detalhe=slotDispTag(col,ln,dados);
         row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
       } else if (val.includes("|")) {
-        const reservas=listarReservas(ld[col-1]);
+        const reservas=listarReservas(cellRaw);
         const temDisp=dispSlot(col,ln,dados);
         const algumDisp=temDisp.tablet>0||temDisp.prata>0||temDisp.preto>0;
-        const minhaRes=minhaReservaNaCell(ld[col-1]); // compara por email
+        const minhaRes=minhaReservaNaCell(cellRaw); // compara por email
         if (algumDisp) {
           cls="livre"; livreTotal++;
           status=reservas.map(r=>r.nome).join(" + ");
