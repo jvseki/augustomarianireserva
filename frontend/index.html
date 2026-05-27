@@ -852,6 +852,9 @@ function renderCards(dados) {
     const slots=document.createElement("div");
     slots.className="day-card-slots";
 
+    // Contadores para decidir se colapsa sem depender de query DOM
+    let slotsNaoIntervalo=0, slotsPassados=0;
+
     for (let ln=2;ln<=15;ln++) {
       const ld=dados[ln-1]; if(!ld) continue;
       const h=HORARIOS[ln]; if(!h) continue;
@@ -896,6 +899,12 @@ function renderCards(dados) {
         row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
       }
 
+      // Conta para lógica de colapso
+      if (!intervalo) {
+        slotsNaoIntervalo++;
+        if (cls==="expirado") slotsPassados++;
+      }
+
       row.classList.add(cls);
       row.innerHTML=`
         <span class="slot-horario">${h[0]}–${h[1]}</span>
@@ -908,13 +917,10 @@ function renderCards(dados) {
       `;
       slots.appendChild(row);
     }
-    // Colapsa automaticamente dias 100% passados; expande hoje
-    const todosPassados = Array.from(slots.querySelectorAll('.slot-row'))
-      .filter(r => !r.classList.contains('intervalo'))
-      .every(r => r.classList.contains('expirado'));
-
-    if (todosPassados) card.classList.add('collapsed');
-    if (isHoje)        card.classList.remove('collapsed');
+    // Colapsa se todos os slots reais (não intervalo) são passados
+    // Hoje nunca colapsa, independente do horário
+    const todosPassados = slotsNaoIntervalo > 0 && slotsPassados === slotsNaoIntervalo;
+    if (todosPassados && !isHoje) card.classList.add('collapsed');
 
     card.appendChild(hdr);
     card.appendChild(slots);
