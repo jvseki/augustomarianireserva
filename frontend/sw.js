@@ -4,7 +4,7 @@
 //             network-first para a API
 // ══════════════════════════════════════
 
-const CACHE_NAME = "notebooks-v1";
+const CACHE_NAME = "notebooks-v2";
 
 const ASSETS_ESTATICOS = [
   "/",
