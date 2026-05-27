@@ -882,104 +882,112 @@ function renderCards(dados) {
   let livreTotal=0,reservadoTotal=0;
 
   for (let col=2;col<=6;col++) {
-    const diaNome=cab[col-1]||DIAS_NOME[col-1]||`Dia ${col-1}`;
-    const dt=new Date(seg); dt.setDate(seg.getDate()+(col-2));
-    const dStr=`${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")}`;
-    // Compara só a data (ano/mes/dia) sem depender de toDateString que varia por locale
-    const isHoje = dt.getFullYear()===hoje.getFullYear() && dt.getMonth()===hoje.getMonth() && dt.getDate()===hoje.getDate();
+    try {
+      const diaNome=cab[col-1]||DIAS_NOME[col-1]||`Dia ${col-1}`;
+      const dt=new Date(seg); dt.setDate(seg.getDate()+(col-2));
+      const dStr=`${dt.getDate().toString().padStart(2,"0")}/${(dt.getMonth()+1).toString().padStart(2,"0")}`;
+      // Compara só a data (ano/mes/dia) sem depender de toDateString que varia por locale
+      const isHoje = dt.getFullYear()===hoje.getFullYear() && dt.getMonth()===hoje.getMonth() && dt.getDate()===hoje.getDate();
 
-    const card=document.createElement("div");
-    card.className="day-card"; card.dataset.dia=col;
+      const card=document.createElement("div");
+      card.className="day-card"; card.dataset.dia=col;
 
-    const hdr=document.createElement("div");
-    hdr.className="day-card-header";
-    hdr.innerHTML=`<div class="day-card-headtext"><div class="day-card-nome">${diaNome}</div><div class="day-card-data">${dStr}${isHoje?" · hoje":""}</div></div><span class="day-card-arrow">▼</span>`;
-    hdr.onclick=()=>card.classList.toggle("collapsed");
+      const hdr=document.createElement("div");
+      hdr.className="day-card-header";
+      hdr.innerHTML=`<div class="day-card-headtext"><div class="day-card-nome">${diaNome}</div><div class="day-card-data">${dStr}${isHoje?" · hoje":""}</div></div><span class="day-card-arrow">▼</span>`;
+      hdr.onclick=()=>card.classList.toggle("collapsed");
 
-    const slots=document.createElement("div");
-    slots.className="day-card-slots";
+      const slots=document.createElement("div");
+      slots.className="day-card-slots";
 
-    // Contadores para decidir se colapsa sem depender de query DOM
-    let slotsNaoIntervalo=0, slotsPassados=0;
+      // Contadores para decidir se colapsa sem depender de query DOM
+      let slotsNaoIntervalo=0, slotsPassados=0;
 
-    for (let ln=2;ln<=15;ln++) {
-      const ld=dados[ln-1]; if(!ld) continue;
-      const h=HORARIOS[ln]; if(!h) continue;
-      const cellRaw = celulaComoTexto(ld[col-1]);
-      const val=cellRaw.trim().toUpperCase().replace(/\s+/g," ");
-      const passado=ePassadoHoje(col,ln);
-      const intervalo=LINHAS_INTERVALO.has(ln);
-      const row=document.createElement("div");
-      row.className="slot-row";
+      for (let ln=2;ln<=15;ln++) {
+        try {
+          const ld=dados[ln-1]; if(!ld) continue;
+          const h=HORARIOS[ln]; if(!h) continue;
+          const cellRaw = celulaComoTexto(ld[col-1]);
+          const val=cellRaw.trim().toUpperCase().replace(/\s+/g," ");
+          const passado=ePassadoHoje(col,ln);
+          const intervalo=LINHAS_INTERVALO.has(ln);
+          const row=document.createElement("div");
+          row.className="slot-row";
 
-      let status="",detalhe="",cls="",temEdicao=false;
-      if (passado)               { cls="expirado"; status="🕐 Passado"; }
-      else if (intervalo)        { cls="intervalo"; status="☕ Intervalo"; }
-      else if (val==="BLOQUEADO"){ cls="bloqueado"; status="Bloqueado"; }
-      else if (val===""||val==="LIVRE") {
-        cls="livre"; status="Livre"; livreTotal++;
-        detalhe=slotDispTag(col,ln,dados);
-        row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
-      } else if (val.includes("|")) {
-        const reservas=listarReservas(cellRaw);
-        const temDisp=dispSlot(col,ln,dados);
-        const algumDisp=temDisp.tablet>0||temDisp.prata>0||temDisp.preto>0;
-        const minhaRes=minhaReservaNaCell(cellRaw); // compara por email
-        if (algumDisp) {
-          cls="livre"; livreTotal++;
-          status=reservas.map(r=>r.nome).join(" + ");
-          detalhe=slotDispTag(col,ln,dados)+" ainda livre";
-          row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
-        } else if (minhaRes) {
-          cls="reservado"; reservadoTotal++;
-          status=reservas.map(r=>r.nome).join(" + ");
-          detalhe=reservas.map(r=>r.equip).join(" | ");
-        } else {
-          cls="reservado espera-disponivel"; reservadoTotal++;
-          status=reservas.map(r=>r.nome).join(" + ");
-          detalhe="⏳ lista de espera";
-          row.onclick=()=>abrirModalEspera(col,ln,dadosGlobais);
+          let status="",detalhe="",cls="",temEdicao=false;
+          if (passado)               { cls="expirado"; status="🕐 Passado"; }
+          else if (intervalo)        { cls="intervalo"; status="☕ Intervalo"; }
+          else if (val==="BLOQUEADO"){ cls="bloqueado"; status="Bloqueado"; }
+          else if (val===""||val==="LIVRE") {
+            cls="livre"; status="Livre"; livreTotal++;
+            detalhe=slotDispTag(col,ln,dados);
+            row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
+          } else if (val.includes("|")) {
+            const reservas=listarReservas(cellRaw);
+            const temDisp=dispSlot(col,ln,dados);
+            const algumDisp=temDisp.tablet>0||temDisp.prata>0||temDisp.preto>0;
+            const minhaRes=minhaReservaNaCell(cellRaw); // compara por email
+            if (algumDisp) {
+              cls="livre"; livreTotal++;
+              status=reservas.map(r=>r.nome).join(" + ");
+              detalhe=slotDispTag(col,ln,dados)+" ainda livre";
+              row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
+            } else if (minhaRes) {
+              cls="reservado"; reservadoTotal++;
+              status=reservas.map(r=>r.nome).join(" + ");
+              detalhe=reservas.map(r=>r.equip).join(" | ");
+            } else {
+              cls="reservado espera-disponivel"; reservadoTotal++;
+              status=reservas.map(r=>r.nome).join(" + ");
+              detalhe="⏳ lista de espera";
+              row.onclick=()=>abrirModalEspera(col,ln,dadosGlobais);
+            }
+            if (minhaRes) temEdicao=true;
+          } else {
+            cls="livre"; status="Livre"; livreTotal++;
+            detalhe=slotDispTag(col,ln,dados);
+            row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
+          }
+
+          // Conta para lógica de colapso
+          if (!intervalo) {
+            slotsNaoIntervalo++;
+            if (cls==="expirado") slotsPassados++;
+          }
+
+          row.classList.add(cls);
+          row.innerHTML=`
+            <span class="slot-horario">${h[0]}–${h[1]}</span>
+            <div class="slot-info">
+              <div class="slot-status">${status}</div>
+              ${detalhe?`<div class="slot-detalhe">${detalhe}</div>`:""}
+            </div>
+            ${temEdicao?`<button class="slot-editar-btn" onclick="event.stopPropagation();abrirModalEditar(${col},${ln})">✏️</button>`:""}
+            ${cls==="livre"&&!temEdicao?'<span class="slot-chevron">›</span>':""}
+          `;
+          slots.appendChild(row);
+        } catch (slotErro) {
+          console.warn("Falha ao renderizar slot mobile", { col, ln, slotErro });
         }
-        if (minhaRes) temEdicao=true;
-      } else {
-        cls="livre"; status="Livre"; livreTotal++;
-        detalhe=slotDispTag(col,ln,dados);
-        row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
+      }
+      // Colapsa se todos os slots reais (não intervalo) são passados
+      // Hoje nunca colapsa, independente do horário
+      const todosPassados = slotsNaoIntervalo > 0 && slotsPassados === slotsNaoIntervalo;
+      if (todosPassados && !isHoje) {
+        card.classList.add("collapsed");
+        const hint = document.createElement("div");
+        hint.className = "day-card-hint";
+        hint.textContent = "Dia encerrado - toque para abrir";
+        const head = hdr.querySelector(".day-card-headtext");
+        if (head) head.appendChild(hint);
       }
 
-      // Conta para lógica de colapso
-      if (!intervalo) {
-        slotsNaoIntervalo++;
-        if (cls==="expirado") slotsPassados++;
-      }
-
-      row.classList.add(cls);
-      row.innerHTML=`
-        <span class="slot-horario">${h[0]}–${h[1]}</span>
-        <div class="slot-info">
-          <div class="slot-status">${status}</div>
-          ${detalhe?`<div class="slot-detalhe">${detalhe}</div>`:""}
-        </div>
-        ${temEdicao?`<button class="slot-editar-btn" onclick="event.stopPropagation();abrirModalEditar(${col},${ln})">✏️</button>`:""}
-        ${cls==="livre"&&!temEdicao?'<span class="slot-chevron">›</span>':""}
-      `;
-      slots.appendChild(row);
+      card.appendChild(hdr);
+      card.appendChild(slots);
+      view.appendChild(card);
+    } catch (diaErro) {
+      console.warn("Falha ao renderizar dia mobile", { col, diaErro });
     }
-    // Colapsa se todos os slots reais (não intervalo) são passados
-    // Hoje nunca colapsa, independente do horário
-    const todosPassados = slotsNaoIntervalo > 0 && slotsPassados === slotsNaoIntervalo;
-    if (todosPassados && !isHoje) {
-      card.classList.add("collapsed");
-      const hint = document.createElement("div");
-      hint.className = "day-card-hint";
-      hint.textContent = "Dia encerrado - toque para abrir";
-      const head = hdr.querySelector(".day-card-headtext");
-      if (head) head.appendChild(hint);
-    }
-
-    card.appendChild(hdr);
-    card.appendChild(slots);
-    view.appendChild(card);
   }
 }
 
