@@ -276,7 +276,11 @@ th:first-child {
   border-radius: 14px 0 0 0;
   font-family: 'Architects Daughter', cursive;
   font-size: 14px; color: #c8e8cc;
-  min-width: 130px;
+  min-width: 138px;
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  box-shadow: 4px 0 8px rgba(0, 0, 0, .12);
 }
 th:last-child { border-radius: 0 14px 0 0; }
 
@@ -325,12 +329,85 @@ td {
 tbody tr:last-child td { border-bottom: none; }
 
 td.label-col {
-  font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 700;
-  color: #1a1610; background: #ede8d8;
-  border-right: 2px solid #ccc0a8;
-  cursor: default; min-width: 128px;
-  letter-spacing: .15px;
+  font-family: 'DM Sans', sans-serif;
+  background: linear-gradient(90deg, #e8e0cc 0%, #f3ebda 100%);
+  border-right: 3px solid #b8aa90;
+  cursor: default;
+  min-width: 138px;
+  padding: 12px 14px;
+  vertical-align: middle;
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  box-shadow: 4px 0 8px rgba(50, 35, 10, .06);
 }
+
+td.label-col.label-manha {
+  background: linear-gradient(90deg, #dce8f4 0%, #eef4fb 100%);
+  border-right-color: #8aaed4;
+}
+
+td.label-col.label-tarde {
+  background: linear-gradient(90deg, #f5ecd8 0%, #faf4e8 100%);
+  border-right-color: #d4b878;
+}
+
+td.label-col.label-intervalo {
+  background: linear-gradient(90deg, #ffe8c8 0%, #fff4e0 100%);
+  border-right-color: #e8a84a;
+}
+
+.hora-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.hora-range {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: 'DM Mono', monospace;
+  line-height: 1.15;
+}
+
+.hora-ini,
+.hora-fim {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1a1610;
+  letter-spacing: .02em;
+}
+
+.hora-sep {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b5e4a;
+  margin: 0 1px;
+}
+
+.hora-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--orange);
+  background: rgba(255, 255, 255, .65);
+  border: 1px solid var(--orange-bd);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.label-manha .hora-ini,
+.label-manha .hora-fim { color: #1e3a5f; }
+
+.label-tarde .hora-ini,
+.label-tarde .hora-fim { color: #5c3d0a; }
+
+.label-intervalo .hora-ini,
+.label-intervalo .hora-fim { color: #9a4a00; }
 
 td.livre { cursor: pointer; }
 td.livre:hover, td.livre:active { background: var(--green-bg) !important; }
@@ -647,7 +724,12 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   .slot-row.expirado { cursor: default; background: #e8e2d8; }
 
 
-  .slot-horario { font-family:'DM Mono',monospace; font-size:12px; font-weight:700; color:var(--ink); min-width:90px; }
+  .slot-horario {
+    font-family:'DM Mono',monospace; font-size:13px; font-weight:800;
+    color:#1a1610; min-width:96px; letter-spacing:.02em;
+    background:#eef4fb; border:1px solid #c5d8ec; border-radius:8px;
+    padding:6px 8px; flex-shrink:0;
+  }
   .slot-info    { flex:1; margin-left:10px; }
   .slot-status  { font-size:12px; font-weight:800; }
   .slot-detalhe { font-size:10px; color:var(--ink2); font-family:'DM Mono',monospace; margin-top:2px; }

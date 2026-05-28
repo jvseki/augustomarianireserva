@@ -396,7 +396,7 @@ const LINHAS_INTERVALO = new Set([5, 12]);
 const HORARIOS = {
   2:  ["07:00","07:50"], 3:  ["07:50","08:40"], 4:  ["08:40","09:30"],
   5:  ["09:30","09:50"], 6:  ["09:50","10:40"], 7:  ["10:40","11:30"],
-  8:  ["11:30","12:30"], 9:  ["12:30","13:20"], 10: ["13:20","14:10"],
+  8:  ["11:30","12:20"], 9:  ["12:30","13:20"], 10: ["13:20","14:10"],
   11: ["14:10","15:00"], 12: ["15:00","15:20"], 13: ["15:20","16:10"],
   14: ["16:10","17:00"], 15: ["17:00","17:50"],
 };
@@ -720,6 +720,18 @@ function dispDia(coluna,dados) {
   return Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,total[k]-uso[k]]));
 }
 
+function htmlLabelHorario(linhaNum) {
+  const h = HORARIOS[linhaNum];
+  if (!h) return null;
+  const intervalo = LINHAS_INTERVALO.has(linhaNum);
+  const tarde = linhaNum >= 9;
+  return `
+    <div class="hora-label${intervalo?" hora-intervalo":""}${tarde?" hora-tarde":""}">
+      <span class="hora-range"><span class="hora-ini">${h[0]}</span><span class="hora-sep">–</span><span class="hora-fim">${h[1]}</span></span>
+      ${intervalo?'<span class="hora-badge">☕ Intervalo</span>':""}
+    </div>`;
+}
+
 function slotDispTag(coluna,ln,dados) {
   const s=dispSlot(coluna,ln,dados);
   const p=[];
@@ -834,7 +846,17 @@ function renderTabela(dados) {
         }
         tr.appendChild(td); return;
       }
-      if (isLbl) { td.className="label-col"; td.innerText=celula; tr.appendChild(td); return; }
+      if (isLbl) {
+        td.className="label-col";
+        if (LINHAS_INTERVALO.has(linhaNum)) td.classList.add("label-intervalo");
+        else if (linhaNum >= 9) td.classList.add("label-tarde");
+        else if (linhaNum >= 2) td.classList.add("label-manha");
+        const lblHtml = htmlLabelHorario(linhaNum);
+        if (lblHtml) td.innerHTML = lblHtml;
+        else td.innerText = celula;
+        tr.appendChild(td);
+        return;
+      }
 
       const passado=ePassadoHoje(coluna,linhaNum);
       const intervalo=LINHAS_INTERVALO.has(linhaNum);
