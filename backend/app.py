@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sheets import get_all_data, update_cell, get_cell, client, sheet
 import os
+import re
 
 app = Flask(__name__)
 CORS(app)
@@ -108,41 +109,52 @@ def remover_espera(uid):
         return jsonify({"erro": str(e)}), 500
 
 
+RE_EQUIP = re.compile(
+    r"(\d+)\s*(tv remota|notebook prata|notebook preto|tablet)",
+    re.IGNORECASE,
+)
+
+def _parse_equip_segment(seg):
+    """Soma quantidades de um trecho '2 tablet + 1 tv remota'."""
+    uso = {"tablet": 0, "prata": 0, "preto": 0, "tvremota": 0}
+    for m in RE_EQUIP.finditer(seg):
+        qtd = int(m.group(1))
+        tipo = m.group(2).lower()
+        if tipo == "tablet":
+            uso["tablet"] += qtd
+        elif tipo == "notebook prata":
+            uso["prata"] += qtd
+        elif tipo == "notebook preto":
+            uso["preto"] += qtd
+        elif tipo == "tv remota":
+            uso["tvremota"] += qtd
+    return uso
+
 def calcular_uso_celula(cel_valor):
-    """Retorna {tablet, prata, preto} com total em uso na célula."""
-    uso = {"tablet": 0, "prata": 0, "preto": 0}
-    if not cel_valor or not "|" in cel_valor:
+    """Retorna uso por tipo de equipamento na célula."""
+    uso = {"tablet": 0, "prata": 0, "preto": 0, "tvremota": 0}
+    if not cel_valor or "|" not in cel_valor:
         return uso
-    import re
     for bloco in cel_valor.split("§"):
         partes = bloco.split("|")
         if len(partes) < 2:
             continue
         for seg in partes[1].split("+"):
-            m = re.search(r"(\d+)\s*(tablet|notebook prata|notebook preto)", seg.strip(), re.IGNORECASE)
-            if m:
-                qtd = int(m.group(1))
-                tipo = m.group(2).lower()
-                if tipo == "tablet":           uso["tablet"] += qtd
-                elif tipo == "notebook prata": uso["prata"]  += qtd
-                elif tipo == "notebook preto": uso["preto"]  += qtd
+            parsed = _parse_equip_segment(seg.strip())
+            for k in uso:
+                uso[k] += parsed[k]
     return uso
 
 def equip_str_para_dict(equip_str):
-    """Converte '23 notebook prata + 5 notebook preto' em {tablet:0, prata:23, preto:5}."""
-    import re
-    res = {"tablet": 0, "prata": 0, "preto": 0}
+    """Converte string de equipamentos em dict de quantidades."""
+    res = {"tablet": 0, "prata": 0, "preto": 0, "tvremota": 0}
     for seg in equip_str.split("+"):
-        m = re.search(r"(\d+)\s*(tablet|notebook prata|notebook preto)", seg.strip(), re.IGNORECASE)
-        if m:
-            qtd = int(m.group(1))
-            tipo = m.group(2).lower()
-            if tipo == "tablet":           res["tablet"] += qtd
-            elif tipo == "notebook prata": res["prata"]  += qtd
-            elif tipo == "notebook preto": res["preto"]  += qtd
+        parsed = _parse_equip_segment(seg.strip())
+        for k in res:
+            res[k] += parsed[k]
     return res
 
-ESTOQUE_TOTAL = {"tablet": 12, "prata": 23, "preto": 11}
+ESTOQUE_TOTAL = {"tablet": 12, "prata": 23, "preto": 11, "tvremota": 1}
 
 @app.route("/promover", methods=["POST"])
 def promover_espera():

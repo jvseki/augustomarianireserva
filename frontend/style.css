@@ -218,6 +218,7 @@ header h1 {
 .stock-badge.tablet { background:#f0eaff; border-color:#c9b5f0; color:#5020b0; }
 .stock-badge.prata  { background:var(--blue-bg); border-color:var(--blue-bd); color:var(--blue); }
 .stock-badge.preto  { background:#eeeae2; border-color:#b8b0a0; color:#3a3020; }
+.stock-badge.tvremota { background:#fff4e6; border-color:#f5c26b; color:#9a5b00; }
 .stock-badge.esgotado { background:var(--red-bg)!important; border-color:var(--red-bd)!important; color:var(--red)!important; }
 .stock-zero { font-weight: 900; }
 
@@ -527,6 +528,7 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 .equip-row.ativo.tablet { background:#f0eaff; border-color:#c9b5f0; }
 .equip-row.ativo.prata  { background:var(--blue-bg); border-color:var(--blue-bd); }
 .equip-row.ativo.preto  { background:#eeeae0; border-color:#b8b0a0; }
+.equip-row.ativo.tvremota { background:#fff4e6; border-color:#f5c26b; }
 .equip-row.sem-estoque  { opacity:.4; pointer-events:none; }
 
 .equip-row-check {
@@ -746,6 +748,7 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 .eq-badge.tablet { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
 .eq-badge.prata  { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
 .eq-badge.preto  { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
+.eq-badge.tvremota { background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
 
 /* ══════════════════════════════════════
    TELA DE LOGIN / BOAS-VINDAS

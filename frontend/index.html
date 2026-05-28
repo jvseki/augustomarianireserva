@@ -99,7 +99,7 @@
           <span class="step-icon">🎒</span>
           <div class="step-text">
             <strong>Selecione os equipamentos</strong>
-            <span>Tablets, notebooks prata ou preto — conforme disponibilidade</span>
+            <span>Tablets, notebooks, TV remota — conforme disponibilidade</span>
           </div>
         </div>
         <div class="step-item">
@@ -138,7 +138,7 @@
             <span class="step-icon">🎒</span>
             <div class="step-text">
               <strong>Selecione os equipamentos</strong>
-              <span>Tablets, notebooks prata ou preto — conforme disponibilidade</span>
+              <span>Tablets, notebooks, TV remota — conforme disponibilidade</span>
             </div>
           </div>
           <div class="step-item">
@@ -262,6 +262,7 @@
       <span class="stock-badge tablet" id="stock-tablet">📱 —</span>
       <span class="stock-badge prata"  id="stock-prata">💻 —</span>
       <span class="stock-badge preto"  id="stock-preto">🖥️ —</span>
+      <span class="stock-badge tvremota" id="stock-tvremota">📺 —</span>
     </div>
 
     <div class="legend-row">
@@ -371,10 +372,25 @@
 const API = "https://backend-reserva-n8ru.onrender.com";
 
 const ESTOQUE = {
-  tablet: { label:"tablet",         total:12, emoji:"📱", nome:"Tablet" },
-  prata:  { label:"notebook prata", total:23, emoji:"💻", nome:"Note Prata" },
-  preto:  { label:"notebook preto", total:11, emoji:"🖥️", nome:"Note Preto" },
+  tablet:   { label:"tablet",         total:12, emoji:"📱", nome:"Tablet" },
+  prata:    { label:"notebook prata", total:23, emoji:"💻", nome:"Note Prata" },
+  preto:    { label:"notebook preto", total:11, emoji:"🖥️", nome:"Note Preto" },
+  tvremota: { label:"tv remota",      total:1,  emoji:"📺", nome:"TV Remota" },
 };
+
+const RE_EQUIP = /(\d+)\s*(tv remota|notebook prata|notebook preto|tablet)/gi;
+
+function estoqueZerado() {
+  return Object.fromEntries(Object.keys(ESTOQUE).map(k => [k, 0]));
+}
+
+function temAlgumDisponivel(disp) {
+  return Object.keys(ESTOQUE).some(t => (disp[t] || 0) > 0);
+}
+
+function slotTotalmenteLotado(disp) {
+  return Object.keys(ESTOQUE).every(t => (disp[t] || 0) <= 0);
+}
 
 const LINHAS_INTERVALO = new Set([5, 12]);
 const HORARIOS = {
@@ -461,10 +477,12 @@ let equipState = resetEquip();
 let editarColuna = null;
 let editarLinha  = null;
 let editarEquipState = resetEquip();
-let editarMaxDisp = {tablet:0, prata:0, preto:0}; // máximo fixo calculado ao abrir
+let editarMaxDisp = estoqueZerado(); // máximo fixo calculado ao abrir
 
 function resetEquip() {
-  return { tablet:{ativo:false,qtd:1}, prata:{ativo:false,qtd:1}, preto:{ativo:false,qtd:1} };
+  return Object.fromEntries(
+    Object.keys(ESTOQUE).map(k => [k, { ativo: false, qtd: 1 }])
+  );
 }
 
 // ════════════════════════════════════════
@@ -618,17 +636,19 @@ function extrairReserva(valor) {
   const v=valor.trim().toUpperCase();
   if (!v||v==="BLOQUEADO") return null;
   if (!valor.includes("|")) return null;
-  const res={tablet:0,prata:0,preto:0};
+  const res=estoqueZerado();
   valor.split("§").forEach(bloco => {
     const partes=bloco.split("|");
     if (partes.length<2) return;
     partes[1].split("+").forEach(seg => {
-      const m=seg.trim().match(/(\d+)\s*(tablet|notebook prata|notebook preto)/i);
-      if (m) {
+      RE_EQUIP.lastIndex = 0;
+      let m;
+      while ((m = RE_EQUIP.exec(seg.trim())) !== null) {
         const n=m[2].toLowerCase();
-        if      (n==="tablet")         res.tablet+=parseInt(m[1]);
-        else if (n==="notebook prata") res.prata +=parseInt(m[1]);
-        else if (n==="notebook preto") res.preto +=parseInt(m[1]);
+        if      (n==="tablet")         res.tablet+=parseInt(m[1],10);
+        else if (n==="notebook prata") res.prata +=parseInt(m[1],10);
+        else if (n==="notebook preto") res.preto +=parseInt(m[1],10);
+        else if (n==="tv remota")      res.tvremota+=parseInt(m[1],10);
       }
     });
   });
@@ -668,23 +688,24 @@ function minhaReservaNaCell(valor) {
 
 function dispSlot(coluna,ln,dados) {
   const ld=dados[ln-1];
-  const base={tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
+  const base=Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,ESTOQUE[k].total]));
   if (!ld) return base;
   const r=extrairReserva(ld[coluna-1]);
   if (!r) return base;
-  return {tablet:base.tablet-r.tablet,prata:base.prata-r.prata,preto:base.preto-r.preto};
+  return Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,base[k]-(r[k]||0)]));
 }
 
 function dispSelecao(coluna,linhas,dados) {
-  if (!linhas||!linhas.length) return {tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
+  const total=Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,ESTOQUE[k].total]));
+  if (!linhas||!linhas.length) return total;
   return linhas.reduce((min,ln)=>{
     const s=dispSlot(coluna,ln,dados);
-    return {tablet:Math.min(min.tablet,s.tablet),prata:Math.min(min.prata,s.prata),preto:Math.min(min.preto,s.preto)};
-  },{tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total});
+    return Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,Math.min(min[k],s[k])]));
+  },total);
 }
 
 function dispDia(coluna,dados) {
-  const uso={tablet:0,prata:0,preto:0};
+  const uso=estoqueZerado();
   let algumFuturo=false;
   for (let ln=2;ln<=15;ln++) {
     const ld=dados[ln-1]; if(!ld) continue;
@@ -692,18 +713,19 @@ function dispDia(coluna,dados) {
     if (ePassadoHoje(coluna,ln)) continue;
     algumFuturo=true;
     const r=extrairReserva(ld[coluna-1]);
-    if (r) {uso.tablet+=r.tablet;uso.prata+=r.prata;uso.preto+=r.preto;}
+    if (r) Object.keys(uso).forEach(k => { uso[k] += r[k] || 0; });
   }
-  if (!algumFuturo) return {tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
-  return {tablet:ESTOQUE.tablet.total-uso.tablet,prata:ESTOQUE.prata.total-uso.prata,preto:ESTOQUE.preto.total-uso.preto};
+  const total=Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,ESTOQUE[k].total]));
+  if (!algumFuturo) return total;
+  return Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,total[k]-uso[k]]));
 }
 
 function slotDispTag(coluna,ln,dados) {
   const s=dispSlot(coluna,ln,dados);
   const p=[];
-  if(s.tablet>0) p.push(`📱${s.tablet}`);
-  if(s.prata >0) p.push(`💻${s.prata}`);
-  if(s.preto >0) p.push(`🖥️${s.preto}`);
+  Object.keys(ESTOQUE).forEach(tipo=>{
+    if ((s[tipo]||0)>0) p.push(`${ESTOQUE[tipo].emoji}${s[tipo]}`);
+  });
   return p.join(" · ")||"—";
 }
 
@@ -743,7 +765,7 @@ function atualizarStockHeader(_dados) {
     const badge=document.getElementById(`stock-${tipo}`);
     if(!badge) return;
     const {emoji,total}=ESTOQUE[tipo];
-    const pl=tipo==="tablet"?"tablets":ESTOQUE[tipo].label+"s";
+    const pl=tipo==="tablet"?"tablets":tipo==="tvremota"?"tv remota":ESTOQUE[tipo].label+"s";
     badge.classList.remove("esgotado");
     badge.innerHTML=`${emoji} ${total} ${pl}`;
   });
@@ -758,9 +780,11 @@ function fmtEquipBadges(equip) {
   const m1=equip.match(/(\d+)\s*tablet/i);
   const m2=equip.match(/(\d+)\s*notebook prata/i);
   const m3=equip.match(/(\d+)\s*notebook preto/i);
+  const m4=equip.match(/(\d+)\s*tv remota/i);
   if(m1) badges.push(`<span class="eq-badge tablet">📱${m1[1]}</span>`);
   if(m2) badges.push(`<span class="eq-badge prata">💻${m2[1]}</span>`);
   if(m3) badges.push(`<span class="eq-badge preto">🖥️${m3[1]}</span>`);
+  if(m4) badges.push(`<span class="eq-badge tvremota">📺${m4[1]}</span>`);
   return badges.length?`<span class="eq-badges">${badges.join("")}</span>`:`<span class="cell-equip">${equip}</span>`;
 }
 
@@ -831,7 +855,7 @@ function renderTabela(dados) {
       } else if (val.includes("|")) {
         const reservas=listarReservas(celula);
         const temDisp=dispSlot(coluna,linhaNum,dados);
-        const algumDisp=temDisp.tablet>0||temDisp.prata>0||temDisp.preto>0;
+        const algumDisp=temAlgumDisponivel(temDisp);
         const minhaResTabela=minhaReservaNaCell(celula);
         if (algumDisp) {
           td.className="livre";
@@ -925,7 +949,7 @@ function renderCards(dados) {
           } else if (val.includes("|")) {
             const reservas=listarReservas(cellRaw);
             const temDisp=dispSlot(col,ln,dados);
-            const algumDisp=temDisp.tablet>0||temDisp.prata>0||temDisp.preto>0;
+            const algumDisp=temAlgumDisponivel(temDisp);
             const minhaRes=minhaReservaNaCell(cellRaw); // compara por email
             if (algumDisp) {
               cls="livre"; livreTotal++;
@@ -1036,7 +1060,7 @@ function renderHorariosBtns(coluna,dados,linhaPreSel) {
     const bloqueado=val==="BLOQUEADO"&&!intervalo;
     const temRes=celVal.includes("|");
     const disp=temRes?dispSlot(coluna,ln,dados):null;
-    const lotado=temRes&&disp&&disp.tablet<=0&&disp.prata<=0&&disp.preto<=0;
+    const lotado=temRes&&disp&&slotTotalmenteLotado(disp);
 
     const btn=document.createElement("button");
     btn.className="horario-btn";
@@ -1091,7 +1115,7 @@ function renderEquipRows(coluna,dados) {
   c.innerHTML="";
   const disp=horariosSelecionados.length>0
     ?dispSelecao(coluna,horariosSelecionados,dados)
-    :{tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
+    :Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,ESTOQUE[k].total]));
 
   Object.keys(ESTOQUE).forEach(tipo=>{
     const {emoji,nome}=ESTOQUE[tipo];
@@ -1142,7 +1166,7 @@ function toggleEquip(tipo,col,dados) {
   const dadosUse=dados||dadosGlobais;
   const disp=horariosSelecionados.length>0
     ?dispSelecao(colUse,horariosSelecionados,dadosUse)
-    :{tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
+    :Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,ESTOQUE[k].total]));
   equipState[tipo].ativo=!equipState[tipo].ativo;
   const row=document.getElementById(`equip-row-${tipo}`);
   const check=document.getElementById(`check-${tipo}`);
@@ -1159,7 +1183,7 @@ function toggleEquip(tipo,col,dados) {
 function mudaQtd(tipo,delta) {
   const disp=horariosSelecionados.length>0
     ?dispSelecao(modalDiaColuna,horariosSelecionados,dadosGlobais)
-    :{tablet:ESTOQUE.tablet.total,prata:ESTOQUE.prata.total,preto:ESTOQUE.preto.total};
+    :Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,ESTOQUE[k].total]));
   // Garante que nunca ultrapassa o estoque total nem o disponível
   const maxPermitido = Math.min(disp[tipo], ESTOQUE[tipo].total);
   equipState[tipo].qtd = Math.max(1, Math.min(maxPermitido, equipState[tipo].qtd+delta));
@@ -1241,17 +1265,20 @@ function abrirModalEditar(coluna, ln) {
   const m1 = minhaRes.equip.match(/(\d+)\s*tablet/i);
   const m2 = minhaRes.equip.match(/(\d+)\s*notebook prata/i);
   const m3 = minhaRes.equip.match(/(\d+)\s*notebook preto/i);
-  if(m1){editarEquipState.tablet.ativo=true;editarEquipState.tablet.qtd=parseInt(m1[1]);}
-  if(m2){editarEquipState.prata.ativo=true; editarEquipState.prata.qtd=parseInt(m2[1]);}
-  if(m3){editarEquipState.preto.ativo=true; editarEquipState.preto.qtd=parseInt(m3[1]);}
+  const m4 = minhaRes.equip.match(/(\d+)\s*tv remota/i);
+  if(m1){editarEquipState.tablet.ativo=true;editarEquipState.tablet.qtd=parseInt(m1[1],10);}
+  if(m2){editarEquipState.prata.ativo=true; editarEquipState.prata.qtd=parseInt(m2[1],10);}
+  if(m3){editarEquipState.preto.ativo=true; editarEquipState.preto.qtd=parseInt(m3[1],10);}
+  if(m4){editarEquipState.tvremota.ativo=true; editarEquipState.tvremota.qtd=parseInt(m4[1],10);}
 
   // Calcula o máximo disponível UMA VEZ e guarda fixo (disponível atual + o que eu uso)
   const _dispAtual = dispSlot(coluna, ln, dadosGlobais);
-  editarMaxDisp = {
-    tablet: _dispAtual.tablet + (editarEquipState.tablet.ativo ? editarEquipState.tablet.qtd : 0),
-    prata:  _dispAtual.prata  + (editarEquipState.prata.ativo  ? editarEquipState.prata.qtd  : 0),
-    preto:  _dispAtual.preto  + (editarEquipState.preto.ativo  ? editarEquipState.preto.qtd  : 0),
-  };
+  editarMaxDisp = Object.fromEntries(
+    Object.keys(ESTOQUE).map(k => [
+      k,
+      _dispAtual[k] + (editarEquipState[k].ativo ? editarEquipState[k].qtd : 0),
+    ])
+  );
 
   const cab = dadosGlobais[0]||[];
   const h   = HORARIOS[ln]||["?","?"];
