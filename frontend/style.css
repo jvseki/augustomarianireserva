@@ -348,13 +348,13 @@ td.label-col.label-manha {
 }
 
 td.label-col.label-tarde {
-  background: linear-gradient(90deg, #f5ecd8 0%, #faf4e8 100%);
-  border-right-color: #d4b878;
+  background: linear-gradient(90deg, #e4e8f8 0%, #f0f2fc 100%);
+  border-right-color: #7c8fd4;
 }
 
 td.label-col.label-intervalo {
-  background: linear-gradient(90deg, #ffe8c8 0%, #fff4e0 100%);
-  border-right-color: #e8a84a;
+  background: linear-gradient(90deg, #ffe0b8 0%, #fff0d6 100%);
+  border-right-color: #e07a12;
 }
 
 .hora-label {
@@ -404,10 +404,16 @@ td.label-col.label-intervalo {
 .label-manha .hora-fim { color: #1e3a5f; }
 
 .label-tarde .hora-ini,
-.label-tarde .hora-fim { color: #5c3d0a; }
+.label-tarde .hora-fim { color: #3b3480; }
 
 .label-intervalo .hora-ini,
-.label-intervalo .hora-fim { color: #9a4a00; }
+.label-intervalo .hora-fim { color: #b45309; }
+
+.label-intervalo .hora-badge {
+  color: #c2410c;
+  background: #fff;
+  border-color: #f59e0b;
+}
 
 td.livre { cursor: pointer; }
 td.livre:hover, td.livre:active { background: var(--green-bg) !important; }

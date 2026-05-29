@@ -406,6 +406,29 @@ const DIAS_NOME = ["","Segunda","Terça","Quarta","Quinta","Sexta"];
 // ESTADO DO USUÁRIO
 // ════════════════════════════════════════
 let usuarioLogado = null; // { nome, email, picture }
+const USUARIO_STORAGE_KEY = "usuario";
+
+function salvarUsuarioLocal(u) {
+  try {
+    localStorage.setItem(USUARIO_STORAGE_KEY, JSON.stringify(u));
+  } catch (e) {}
+}
+
+function carregarUsuarioLocal() {
+  try {
+    const raw = localStorage.getItem(USUARIO_STORAGE_KEY);
+    if (!raw) return null;
+    const u = JSON.parse(raw);
+    if (u && u.nome && u.email) return u;
+  } catch (e) {}
+  return null;
+}
+
+function limparUsuarioLocal() {
+  try {
+    localStorage.removeItem(USUARIO_STORAGE_KEY);
+  } catch (e) {}
+}
 
 function handleGoogleLogin(response) {
   const payload = parseJwt(response.credential);
@@ -414,8 +437,8 @@ function handleGoogleLogin(response) {
     email:   payload.email,
     picture: payload.picture,
   };
-  // Guarda em sessão para não pedir login toda vez
-  sessionStorage.setItem("usuario", JSON.stringify(usuarioLogado));
+  // Mantém login no aparelho (localStorage) até o usuário sair
+  salvarUsuarioLocal(usuarioLogado);
   entrarNoApp();
 }
 
@@ -448,17 +471,17 @@ function renderUserInfo() {
 }
 
 function logout() {
-  sessionStorage.removeItem("usuario");
+  limparUsuarioLocal();
   usuarioLogado = null;
   document.getElementById("app").style.display = "none";
   mostrarTelaLogin();
 }
 
-// Verifica sessão ao carregar
+// Verifica login salvo ao carregar
 window.addEventListener("load", () => {
-  const saved = sessionStorage.getItem("usuario");
+  const saved = carregarUsuarioLocal();
   if (saved) {
-    usuarioLogado = JSON.parse(saved);
+    usuarioLogado = saved;
     entrarNoApp();
   } else {
     setTimeout(mostrarBotoesInstalacao, 400);
