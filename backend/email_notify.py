@@ -168,3 +168,19 @@ def label_proxima_semana():
 def chave_semana_notificacao():
     iso = proxima_segunda().isocalendar()
     return f"{iso[0]}-W{iso[1]:02d}"
+
+
+def agora_brasilia():
+    """Horário de Brasília (para disparo automático na sexta 18h)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Sao_Paulo"))
+    except Exception:
+        from datetime import timedelta
+        return datetime.utcnow() - timedelta(hours=3)
+
+
+def deve_notificar_nova_semana_auto():
+    """Sexta-feira a partir das 18h (Brasília) — sem Cron Job do Render."""
+    agora = agora_brasilia()
+    return agora.weekday() == 4 and agora.hour >= 18

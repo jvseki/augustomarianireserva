@@ -9,6 +9,7 @@ from email_notify import (
     coletar_emails_espera,
     label_proxima_semana,
     chave_semana_notificacao,
+    deve_notificar_nova_semana_auto,
 )
 from config_sheet import config_get, config_set
 import os
@@ -50,9 +51,58 @@ def home():
     return jsonify({"status": "API rodando 🚀"})
 
 
+def executar_notificacao_nova_semana():
+    """Envia e-mails da nova semana (no máximo 1x por semana)."""
+    chave = chave_semana_notificacao()
+    if config_get("ultima_notif_semana") == chave:
+        return {"status": "ja_enviado", "semana": chave}
+
+    agenda_vals = sheet.get_all_values()
+    ws = get_espera_sheet()
+    espera_linhas = ws.get_all_values()
+    header = espera_linhas[0] if espera_linhas else []
+
+    emails = coletar_emails_agenda(agenda_vals)
+    emails |= coletar_emails_espera(espera_linhas, header)
+
+    semana_label = label_proxima_semana()
+    enviados = 0
+    falhas = 0
+    for dest in sorted(emails):
+        if email_nova_semana(dest, semana_label):
+            enviados += 1
+        else:
+            falhas += 1
+
+    config_set("ultima_notif_semana", chave)
+    print(f"[nova-semana] {enviados} enviado(s), {falhas} falha(s), {len(emails)} destinatário(s)")
+    return {
+        "status": "ok",
+        "semana": chave,
+        "semana_label": semana_label,
+        "destinatarios": len(emails),
+        "enviados": enviados,
+        "falhas": falhas,
+        "smtp_configurado": smtp_configurado(),
+    }
+
+
+def tentar_notificacao_nova_semana_automatica():
+    """Plano gratuito Render: dispara na sexta 18h+ quando alguém usa o app."""
+    if not deve_notificar_nova_semana_auto():
+        return
+    if not smtp_configurado():
+        return
+    try:
+        executar_notificacao_nova_semana()
+    except Exception as e:
+        print(f"[nova-semana] auto falhou: {e}")
+
+
 # ── Agenda principal ──
 @app.route("/agenda", methods=["GET"])
 def agenda():
+    tentar_notificacao_nova_semana_automatica()
     valores = sheet.get_all_values()
     return jsonify(valores)
 
@@ -198,6 +248,7 @@ def promover_espera():
     mesmo com abas legadas ou em migração.
     """
     try:
+        tentar_notificacao_nova_semana_automatica()
         ws = get_espera_sheet()
 
         # Lê todas as linhas incluindo cabeçalho e mapeia colunas pelo nome
@@ -319,53 +370,27 @@ def promover_espera():
 
 @app.route("/notificacoes/status", methods=["GET"])
 def notificacoes_status():
+    from email_notify import agora_brasilia
+    agora = agora_brasilia()
     return jsonify({
         "smtp_configurado": smtp_configurado(),
         "proxima_semana": label_proxima_semana(),
+        "modo_auto_sexta_18h": True,
+        "agora_brasilia": agora.strftime("%d/%m/%Y %H:%M"),
+        "dispararia_agora": deve_notificar_nova_semana_auto(),
     })
 
 
 @app.route("/cron/nova-semana", methods=["POST"])
 def cron_nova_semana():
     """
-    Aviso de nova semana liberada (sexta 18h).
-    Configure no Render Cron: POST com header X-Cron-Secret.
-    Horário sugerido: 0 21 * * 5 (21:00 UTC = 18:00 Brasília).
+    Disparo manual ou via serviço externo gratuito (cron-job.org).
+    Header: X-Cron-Secret = valor de CRON_SECRET.
+    No plano gratuito do Render também roda sozinho na sexta 18h+ ao abrir a agenda.
     """
     if not cron_autorizado():
         return jsonify({"erro": "Não autorizado"}), 401
-
-    chave = chave_semana_notificacao()
-    if config_get("ultima_notif_semana") == chave:
-        return jsonify({"status": "ja_enviado", "semana": chave})
-
-    agenda_vals = sheet.get_all_values()
-    ws = get_espera_sheet()
-    espera_linhas = ws.get_all_values()
-    header = espera_linhas[0] if espera_linhas else []
-
-    emails = coletar_emails_agenda(agenda_vals)
-    emails |= coletar_emails_espera(espera_linhas, header)
-
-    semana_label = label_proxima_semana()
-    enviados = 0
-    falhas = 0
-    for dest in sorted(emails):
-        if email_nova_semana(dest, semana_label):
-            enviados += 1
-        else:
-            falhas += 1
-
-    config_set("ultima_notif_semana", chave)
-    return jsonify({
-        "status": "ok",
-        "semana": chave,
-        "semana_label": semana_label,
-        "destinatarios": len(emails),
-        "enviados": enviados,
-        "falhas": falhas,
-        "smtp_configurado": smtp_configurado(),
-    })
+    return jsonify(executar_notificacao_nova_semana())
 
 
 # ── Rotas legadas ──
