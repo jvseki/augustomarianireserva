@@ -810,18 +810,90 @@ function atualizarStockHeader(_dados) {
 // ════════════════════════════════════════
 // RENDER TABELA DESKTOP
 // ════════════════════════════════════════
+function parseEquipList(equip) {
+  const items = [];
+  if (!equip) return items;
+  const re = /(\d+)\s*(tv remota|notebook prata|notebook preto|tablet)/gi;
+  let m;
+  while ((m = re.exec(equip)) !== null) {
+    const n = m[2].toLowerCase();
+    let key = null;
+    if (n === "tablet") key = "tablet";
+    else if (n === "notebook prata") key = "prata";
+    else if (n === "notebook preto") key = "preto";
+    else if (n === "tv remota") key = "tvremota";
+    if (key && ESTOQUE[key]) {
+      items.push({ key, qtd: parseInt(m[1], 10), ...ESTOQUE[key] });
+    }
+  }
+  return items;
+}
+
 function fmtEquipBadges(equip) {
   if (!equip) return "";
-  const badges=[];
-  const m1=equip.match(/(\d+)\s*tablet/i);
-  const m2=equip.match(/(\d+)\s*notebook prata/i);
-  const m3=equip.match(/(\d+)\s*notebook preto/i);
-  const m4=equip.match(/(\d+)\s*tv remota/i);
-  if(m1) badges.push(`<span class="eq-badge tablet">📱${m1[1]}</span>`);
-  if(m2) badges.push(`<span class="eq-badge prata">💻${m2[1]}</span>`);
-  if(m3) badges.push(`<span class="eq-badge preto">🖥️${m3[1]}</span>`);
-  if(m4) badges.push(`<span class="eq-badge tvremota">📺${m4[1]}</span>`);
-  return badges.length?`<span class="eq-badges">${badges.join("")}</span>`:`<span class="cell-equip">${equip}</span>`;
+  const items = parseEquipList(equip);
+  if (!items.length) return `<span class="cell-equip">${equip}</span>`;
+  const badges = items.map(it =>
+    `<span class="eq-badge ${it.key}">${it.emoji}${it.qtd}</span>`
+  );
+  return `<span class="eq-badges">${badges.join("")}</span>`;
+}
+
+function fmtMobEquipChips(equip) {
+  const items = parseEquipList(equip);
+  if (!items.length) {
+    return equip ? `<span class="mob-eq-raw">${equip}</span>` : "";
+  }
+  return `<div class="mob-eq-chips">${items.map(it => `
+    <span class="mob-eq ${it.key}">
+      <span class="mob-eq-ico">${it.emoji}</span>
+      <span class="mob-eq-qty">${it.qtd}</span>
+      <span class="mob-eq-lbl">${it.nome}</span>
+    </span>`).join("")}</div>`;
+}
+
+function fmtMobDispChips(col, ln, dados) {
+  const d = dispSlot(col, ln, dados);
+  const chips = Object.keys(ESTOQUE)
+    .filter(k => d[k] > 0)
+    .map(k => {
+      const { emoji, nome } = ESTOQUE[k];
+      return `<span class="mob-eq disp ${k}">
+        <span class="mob-eq-ico">${emoji}</span>
+        <span class="mob-eq-qty">${d[k]}</span>
+        <span class="mob-eq-lbl">${nome}</span>
+      </span>`;
+    });
+  return chips.length ? `<div class="mob-eq-chips mob-disp">${chips.join("")}</div>` : "";
+}
+
+function fmtMobReservasBlock(reservas, col, ln) {
+  const meuEmail = getEmailUsuarioLogado();
+  return `<div class="mob-reservas">${reservas.map(r => {
+    const ehMeu = !!(meuEmail && r.email && r.email.toLowerCase() === meuEmail);
+    const editBtn = ehMeu
+      ? `<button type="button" class="slot-editar-btn" onclick="event.stopPropagation();abrirModalEditar(${col},${ln})">✏️ Editar</button>`
+      : "";
+    const tagMeu = ehMeu ? '<span class="mob-meu-tag">Minha reserva</span>' : "";
+    return `<div class="mob-reserva${ehMeu ? " meu" : ""}">
+      <div class="mob-reserva-head">
+        <span class="mob-reserva-nome" title="${r.nome}">${r.nome}</span>
+        ${tagMeu}
+        ${editBtn}
+      </div>
+      ${fmtMobEquipChips(r.equip)}
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function buildMobSlotHtml(h, innerHtml, showChevron) {
+  const chevron = showChevron ? '<span class="slot-chevron">›</span>' : "";
+  return `
+    <div class="slot-row-top">
+      <span class="slot-horario">${h[0]}–${h[1]}</span>
+      ${chevron ? `<div class="slot-row-actions">${chevron}</div>` : ""}
+    </div>
+    <div class="slot-row-body">${innerHtml}</div>`;
 }
 
 function fmtReservado(valor, coluna, linhaNum) {
@@ -984,57 +1056,63 @@ function renderCards(dados) {
           const row=document.createElement("div");
           row.className="slot-row";
 
-          let status="",detalhe="",cls="",temEdicao=false;
-          if (passado)               { cls="expirado"; status="🕐 Passado"; }
-          else if (intervalo)        { cls="intervalo"; status="☕ Intervalo"; }
-          else if (val==="BLOQUEADO"){ cls="bloqueado"; status="Bloqueado"; }
-          else if (val===""||val==="LIVRE") {
-            cls="livre"; status="Livre"; livreTotal++;
-            detalhe=slotDispTag(col,ln,dados);
+          let innerHtml="", cls="", showChevron=false;
+          if (passado) {
+            cls="expirado";
+            innerHtml='<div class="slot-state-pill expirado">🕐 Passado</div>';
+          } else if (intervalo) {
+            cls="intervalo";
+            innerHtml='<div class="slot-state-pill intervalo">☕ Intervalo</div>';
+          } else if (val==="BLOQUEADO") {
+            cls="bloqueado";
+            innerHtml='<div class="slot-state-pill bloqueado">Bloqueado</div>';
+          } else if (val===""||val==="LIVRE") {
+            cls="livre"; livreTotal++;
+            innerHtml=`<div class="slot-livre-wrap">
+              <span class="slot-state-pill livre">Livre</span>
+              ${fmtMobDispChips(col,ln,dados)}
+            </div>`;
+            showChevron=true;
             row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
           } else if (val.includes("|")) {
             const reservas=listarReservas(cellRaw);
             const temDisp=dispSlot(col,ln,dados);
             const algumDisp=temAlgumDisponivel(temDisp);
-            const minhaRes=minhaReservaNaCell(cellRaw); // compara por email
+            const resBlock=fmtMobReservasBlock(reservas,col,ln);
             if (algumDisp) {
               cls="livre"; livreTotal++;
-              status=reservas.map(r=>r.nome).join(" + ");
-              detalhe=slotDispTag(col,ln,dados)+" ainda livre";
+              innerHtml=`${resBlock}
+                <div class="slot-disp-footer">
+                  <span class="slot-disp-label">Ainda disponível</span>
+                  ${fmtMobDispChips(col,ln,dados)}
+                </div>`;
+              showChevron=true;
               row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
-            } else if (minhaRes) {
+            } else if (minhaReservaNaCell(cellRaw)) {
               cls="reservado"; reservadoTotal++;
-              status=reservas.map(r=>r.nome).join(" + ");
-              detalhe=reservas.map(r=>r.equip).join(" | ");
+              innerHtml=resBlock;
             } else {
               cls="reservado espera-disponivel"; reservadoTotal++;
-              status=reservas.map(r=>r.nome).join(" + ");
-              detalhe="⏳ lista de espera";
+              innerHtml=`${resBlock}<div class="slot-state-pill espera">⏳ Entrar na lista de espera</div>`;
               row.onclick=()=>abrirModalEspera(col,ln,dadosGlobais);
             }
-            if (minhaRes) temEdicao=true;
           } else {
-            cls="livre"; status="Livre"; livreTotal++;
-            detalhe=slotDispTag(col,ln,dados);
+            cls="livre"; livreTotal++;
+            innerHtml=`<div class="slot-livre-wrap">
+              <span class="slot-state-pill livre">Livre</span>
+              ${fmtMobDispChips(col,ln,dados)}
+            </div>`;
+            showChevron=true;
             row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
           }
 
-          // Conta para lógica de colapso
           if (!intervalo) {
             slotsNaoIntervalo++;
             if (cls==="expirado") slotsPassados++;
           }
 
           row.classList.add(cls);
-          row.innerHTML=`
-            <span class="slot-horario">${h[0]}–${h[1]}</span>
-            <div class="slot-info">
-              <div class="slot-status">${status}</div>
-              ${detalhe?`<div class="slot-detalhe">${detalhe}</div>`:""}
-            </div>
-            ${temEdicao?`<button class="slot-editar-btn" onclick="event.stopPropagation();abrirModalEditar(${col},${ln})">✏️</button>`:""}
-            ${cls==="livre"&&!temEdicao?'<span class="slot-chevron">›</span>':""}
-          `;
+          row.innerHTML=buildMobSlotHtml(h, innerHtml, showChevron);
           slots.appendChild(row);
         } catch (slotErro) {
           console.warn("Falha ao renderizar slot mobile", { col, ln, slotErro });
