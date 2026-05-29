@@ -1,6 +1,16 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sheets import get_all_data, update_cell, get_cell, client, sheet
+from email_notify import (
+    smtp_configurado,
+    email_nova_semana,
+    email_promocao_fila,
+    coletar_emails_agenda,
+    coletar_emails_espera,
+    label_proxima_semana,
+    chave_semana_notificacao,
+)
+from config_sheet import config_get, config_set
 import os
 import re
 
@@ -69,11 +79,34 @@ def listar_espera():
         return jsonify({"erro": str(e)}), 500
 
 
+def formatar_reserva_agenda(nome, email, equip):
+    nome = (nome or "").strip()
+    email = (email or "").strip().lower()
+    tag = f" [{email}]" if email and "@" in email else ""
+    return f"{nome}{tag} | {equip}"
+
+
+def cron_autorizado():
+    secret = os.environ.get("CRON_SECRET", "").strip()
+    if not secret:
+        return False
+    return request.headers.get("X-Cron-Secret") == secret
+
+
 @app.route("/espera", methods=["POST"])
 def entrar_espera():
     """Adiciona um professor na lista de espera."""
     try:
-        data = request.json
+        data = request.json or {}
+        nome = (data.get("nome") or "").strip()
+        email = (data.get("email") or "").strip().lower()
+        if not nome:
+            return jsonify({"erro": "Nome obrigatório"}), 400
+        if not email or "@" not in email:
+            return jsonify({
+                "erro": "É necessário estar logado com Google para entrar na fila (e-mail obrigatório)."
+            }), 400
+
         ws = get_espera_sheet()
 
         import time, random
@@ -82,8 +115,8 @@ def entrar_espera():
 
         ws.append_row([
             uid,
-            data["nome"],
-            data.get("email", ""),
+            nome,
+            email,
             int(data["linha"]),
             int(data["coluna"]),
             data["equipamentos"],
@@ -179,6 +212,7 @@ def promover_espera():
 
         idx_id    = col_idx("id")
         idx_nome  = col_idx("nome")
+        idx_email = col_idx("email")
         idx_linha = col_idx("linha")
         idx_col   = col_idx("coluna")
         idx_equip = col_idx("equipamentos")
@@ -200,6 +234,9 @@ def promover_espera():
             try:
                 uid    = reg_row[idx_id]
                 nome   = reg_row[idx_nome]
+                email  = ""
+                if idx_email is not None and idx_email < len(reg_row):
+                    email = (reg_row[idx_email] or "").strip().lower()
                 linha  = int(reg_row[idx_linha])
                 coluna = int(reg_row[idx_col])
                 equip  = reg_row[idx_equip]
@@ -231,11 +268,12 @@ def promover_espera():
             if not cabe:
                 continue  # ainda não tem espaço suficiente
 
-            # Cabe! Promove
+            # Cabe! Promove (com e-mail para permitir editar no app)
+            nova_reserva = formatar_reserva_agenda(nome, email, equip)
             if not cel_atual.strip() or cel_up == "":
-                novo_valor = f"{nome} | {equip}"
+                novo_valor = nova_reserva
             else:
-                novo_valor = f"{cel_atual} § {nome} | {equip}"
+                novo_valor = f"{cel_atual} § {nova_reserva}"
 
             sheet.update_cell(linha, coluna, novo_valor)
             # Atualiza cache local para os próximos da fila
@@ -253,16 +291,81 @@ def promover_espera():
                     break
 
             print(f"[promover] ✅ Promovido: {nome} → linha {linha}, col {coluna}, equip: {equip}")
+
+            email_enviado = False
+            if email:
+                cab = agenda_vals[0] if agenda_vals else None
+                email_enviado = email_promocao_fila(
+                    email, nome, linha, coluna, equip, cabecalho=cab
+                )
+
             promovidos.append({
                 "nome": nome,
+                "email": email,
                 "linha": linha,
                 "coluna": coluna,
-                "equipamentos": equip
+                "equipamentos": equip,
+                "email_enviado": email_enviado,
             })
 
         return jsonify({"promovidos": promovidos})
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
+
+
+# ════════════════════════════════════════
+# NOTIFICAÇÕES POR E-MAIL
+# ════════════════════════════════════════
+
+@app.route("/notificacoes/status", methods=["GET"])
+def notificacoes_status():
+    return jsonify({
+        "smtp_configurado": smtp_configurado(),
+        "proxima_semana": label_proxima_semana(),
+    })
+
+
+@app.route("/cron/nova-semana", methods=["POST"])
+def cron_nova_semana():
+    """
+    Aviso de nova semana liberada (sexta 18h).
+    Configure no Render Cron: POST com header X-Cron-Secret.
+    Horário sugerido: 0 21 * * 5 (21:00 UTC = 18:00 Brasília).
+    """
+    if not cron_autorizado():
+        return jsonify({"erro": "Não autorizado"}), 401
+
+    chave = chave_semana_notificacao()
+    if config_get("ultima_notif_semana") == chave:
+        return jsonify({"status": "ja_enviado", "semana": chave})
+
+    agenda_vals = sheet.get_all_values()
+    ws = get_espera_sheet()
+    espera_linhas = ws.get_all_values()
+    header = espera_linhas[0] if espera_linhas else []
+
+    emails = coletar_emails_agenda(agenda_vals)
+    emails |= coletar_emails_espera(espera_linhas, header)
+
+    semana_label = label_proxima_semana()
+    enviados = 0
+    falhas = 0
+    for dest in sorted(emails):
+        if email_nova_semana(dest, semana_label):
+            enviados += 1
+        else:
+            falhas += 1
+
+    config_set("ultima_notif_semana", chave)
+    return jsonify({
+        "status": "ok",
+        "semana": chave,
+        "semana_label": semana_label,
+        "destinatarios": len(emails),
+        "enviados": enviados,
+        "falhas": falhas,
+        "smtp_configurado": smtp_configurado(),
+    })
 
 
 # ── Rotas legadas ──

@@ -1532,7 +1532,9 @@ function abrirModalEspera(coluna,ln,dados,tipoPreSel=null) {
   const diaNome=cab[coluna-1]||"";
   document.getElementById("espera-title").textContent="⏳ Lista de Espera";
   document.getElementById("espera-sub").textContent=`${diaNome} · ${h[0]}–${h[1]}`;
-  document.getElementById("espera-nome").value=usuarioLogado?usuarioLogado.nome:"";
+  const esperaNome=document.getElementById("espera-nome");
+  esperaNome.value=usuarioLogado?usuarioLogado.nome:"";
+  esperaNome.readOnly=!!usuarioLogado;
   document.getElementById("espera-error").textContent="";
 
   const c=document.getElementById("espera-equip-rows");
@@ -1590,18 +1592,21 @@ async function confirmarEspera(){
   const nome=document.getElementById("espera-nome").value.trim();
   const err=document.getElementById("espera-error");
   err.textContent="";
+  const emailEspera=getEmailUsuarioLogado();
   if(!nome){err.textContent="✏️ Digite o nome.";return;}
+  if(!emailEspera){err.textContent="🔐 Entre com sua conta Google para usar a fila de espera.";return;}
   const sel=Object.keys(esperaEquip).filter(t=>esperaEquip[t].ativo);
   if(!sel.length){err.textContent="🎒 Selecione ao menos um equipamento.";return;}
   const equipStr=sel.map(t=>`${esperaEquip[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
   const btn=document.getElementById("espera-btn");
   btn.textContent="Salvando...";btn.disabled=true;
   try{
-    const res=await fetchComTimeout(`${API}/espera`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,email:usuarioLogado?usuarioLogado.email:"",linha:esperaLinha,coluna:esperaColuna,equipamentos:equipStr})},12000);
-    if(!res.ok) throw new Error();
+    const res=await fetchComTimeout(`${API}/espera`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({nome,email:emailEspera,linha:esperaLinha,coluna:esperaColuna,equipamentos:equipStr})},12000);
+    const data=await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.erro||"Erro ao salvar");
     fecharModalEspera();
     showToast(`⏳ ${nome} entrou na lista de espera!`,"success");
-  }catch(e){err.textContent="✗ Erro ao salvar. Tente novamente.";}
+  }catch(e){err.textContent=e.message?`✗ ${e.message}`:"✗ Erro ao salvar. Tente novamente.";}
   btn.textContent="⏳ Entrar na Lista de Espera";btn.disabled=false;
 }
 
