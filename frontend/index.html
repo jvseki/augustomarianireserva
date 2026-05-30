@@ -519,12 +519,15 @@ function toMin(s) {
 }
 function diaSem() { return new Date().getDay(); }
 
+function semanaExibidaEhFutura() {
+  const agr = new Date();
+  const ds = agr.getDay(); // 0=dom … 5=sex, 6=sab
+  return (ds === 5 && agr.getHours() >= 18) || ds === 6 || ds === 0;
+}
+
 function ePassadoHoje(coluna, ln) {
-  const agr  = new Date();
-  const ds   = agr.getDay(); // 0=dom,1=seg,2=ter,3=qua,4=qui,5=sex,6=sab
-  // Fim de semana ou sexta noite → exibe semana seguinte, nada é passado
-  const semanaFutura = (ds===5 && agr.getHours()>=18) || ds===6 || ds===0;
-  if (semanaFutura) return false;
+  const ds = new Date().getDay();
+  if (semanaExibidaEhFutura()) return false;
   // col 2=seg(ds=1), col 3=ter(ds=2)... col 6=sex(ds=5)
   // diaDaColuna: col 2→1, col 3→2, col 4→3, col 5→4, col 6→5
   const diaDaColuna = coluna - 1;
@@ -594,6 +597,8 @@ function renderCalendario() {
 // RESET / LIMPEZA
 // ════════════════════════════════════════
 async function resetarPassadosHoje(dados) {
+  // Sexta 18h+ / fim de semana: UI já mostra a PRÓXIMA semana — não apagar nada
+  if (semanaExibidaEhFutura()) return;
   const hoje = diaSem();
   const col  = hoje+1;
   if (col<2||col>6) return;
@@ -608,33 +613,6 @@ async function resetarPassadosHoje(dados) {
       } catch(e){}
     }
   }
-}
-
-async function limpezaSexta(dados) {
-  const d = new Date();
-  if (d.getDay()!==5||d.getHours()<18) return;
-  const semana = `limpeza_semana_${d.getFullYear()}_${getNumeroSemana(d)}`;
-  if (localStorage.getItem(semana)) return;
-  const promessas=[];
-  for (let ln=2;ln<=15;ln++) {
-    const ld=dados[ln-1]; if(!ld) continue;
-    if (LINHAS_INTERVALO.has(ln)) continue;
-    for (let col=2;col<=6;col++) {
-      const v=(ld[col-1]||"").trim().toUpperCase();
-      if (v&&v!=="LIVRE"&&v!=="BLOQUEADO")
-        promessas.push(fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:ln,coluna:col,valor:""})}).catch(()=>{}));
-    }
-  }
-  await Promise.all(promessas);
-  localStorage.setItem(semana,"1");
-}
-
-function getNumeroSemana(d) {
-  const dt=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
-  const dayNum=dt.getUTCDay()||7;
-  dt.setUTCDate(dt.getUTCDate()+4-dayNum);
-  const yearStart=new Date(Date.UTC(dt.getUTCFullYear(),0,1));
-  return Math.ceil((((dt-yearStart)/86400000)+1)/7);
 }
 
 function fetchComTimeout(url,opcoes,timeoutMs=10000) {
@@ -776,7 +754,6 @@ async function carregarAgenda() {
     const r1=await fetchComTimeout(`${API}/agenda`);
     if (!r1.ok) throw new Error("Falha ao carregar agenda inicial");
     const d1=await r1.json();
-    await limpezaSexta(d1);
     await resetarPassadosHoje(d1);
     const r2=await fetchComTimeout(`${API}/agenda`);
     if (!r2.ok) throw new Error("Falha ao recarregar agenda");

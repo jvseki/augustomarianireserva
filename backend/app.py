@@ -1,10 +1,14 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sheets import get_all_data, update_cell, client, sheet
+from datetime import datetime, timedelta
 import re
 
 app = Flask(__name__)
 CORS(app)
+
+# Linhas de intervalo na planilha (não limpar)
+LINHAS_INTERVALO = {5, 12}
 
 try:
     print("📊 Planilhas detectadas:", client.list_spreadsheet_files())
@@ -13,6 +17,135 @@ except Exception as e:
 
 # ── Aba de lista de espera ──
 SHEET_ID = "1uixhu6rN03HrMy-1ECf2U-Gr5bpKkbbiToiHGMOglk0"
+
+
+def agora_brasilia():
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Sao_Paulo"))
+    except Exception:
+        return datetime.now()
+
+
+def js_dia_semana(dt):
+    """Equivalente ao getDay() do JavaScript (0=dom … 5=sex, 6=sab)."""
+    py = dt.weekday()  # seg=0 … dom=6
+    return (py + 1) % 7 if py < 6 else 0
+
+
+def exibir_proxima_semana(agora=None):
+    """Sexta 18h+, sábado ou domingo — UI mostra a semana seguinte."""
+    agora = agora or agora_brasilia()
+    ds = js_dia_semana(agora)
+    return (ds == 5 and agora.hour >= 18) or ds in (6, 0)
+
+
+def segunda_da_semana_exibida(agora=None):
+    """Segunda-feira (date) da semana que o frontend está exibindo."""
+    agora = agora or agora_brasilia()
+    hoje = agora.date()
+    ds = js_dia_semana(agora)
+    if ds == 5 and agora.hour >= 18:
+        return hoje + timedelta(days=3)
+    if ds == 6:
+        return hoje + timedelta(days=2)
+    if ds == 0:
+        return hoje + timedelta(days=1)
+    py = agora.weekday()
+    return hoje - timedelta(days=py)
+
+
+def get_config_ws():
+    spreadsheet = client.open_by_key(SHEET_ID)
+    try:
+        return spreadsheet.worksheet("Config")
+    except Exception:
+        ws = spreadsheet.add_worksheet(title="Config", rows=50, cols=2)
+        ws.update("A1:B1", [["chave", "valor"]])
+        return ws
+
+
+def config_get(chave, default=""):
+    ws = get_config_ws()
+    for row in ws.get_all_values()[1:]:
+        if row and row[0] == chave:
+            return row[1] if len(row) > 1 else default
+    return default
+
+
+def config_set(chave, valor):
+    ws = get_config_ws()
+    rows = ws.get_all_values()
+    for i, row in enumerate(rows[1:], start=2):
+        if row and row[0] == chave:
+            ws.update_cell(i, 2, valor)
+            return
+    ws.append_row([chave, valor])
+
+
+def agenda_tem_reservas(valores):
+    for i, row in enumerate(valores or []):
+        if i == 0:
+            continue
+        for j, cell in enumerate(row):
+            if j == 0:
+                continue
+            if cell and "|" in str(cell):
+                v = str(cell).strip().upper()
+                if v and v not in ("LIVRE", "BLOQUEADO"):
+                    return True
+    return False
+
+
+def limpar_celulas_agenda():
+    """Limpa agendamentos B2:F15 (preserva intervalos e BLOQUEADO manual)."""
+    for ln in range(2, 16):
+        if ln in LINHAS_INTERVALO:
+            continue
+        for col in range(2, 7):
+            try:
+                v = (sheet.cell(ln, col).value or "").strip().upper()
+                if v == "BLOQUEADO":
+                    continue
+            except Exception:
+                pass
+            update_cell(ln, col, "")
+
+
+def tentar_limpeza_semana():
+    """
+    Limpa a planilha UMA vez por semana na virada (sexta 18h+).
+    Controle na aba Config — não depende do celular de cada professor.
+    """
+    if not exibir_proxima_semana():
+        return
+
+    agora = agora_brasilia()
+    seg = segunda_da_semana_exibida(agora)
+    chave = f"limpeza_{seg.isoformat()}"
+    if config_get(chave):
+        return
+
+    ds = js_dia_semana(agora)
+    stamp = agora.strftime("%d/%m/%Y %H:%M")
+
+    # Sexta 18h+: virada oficial — limpa dados da semana que acabou
+    if ds == 5 and agora.hour >= 18:
+        limpar_celulas_agenda()
+        config_set(chave, f"limpo_{stamp}")
+        print(f"[limpeza] planilha limpa para semana de {seg.strftime('%d/%m/%Y')} às {stamp}")
+        return
+
+    # Sáb/Dom (ou deploy tardio): já há reservas da semana nova — só registra, não apaga
+    valores = sheet.get_all_values()
+    if agenda_tem_reservas(valores):
+        config_set(chave, f"preservado_{stamp}")
+        print(f"[limpeza] semana {seg.strftime('%d/%m/%Y')} preservada (já tinha reservas)")
+        return
+
+    limpar_celulas_agenda()
+    config_set(chave, f"limpo_{stamp}")
+    print(f"[limpeza] planilha limpa (fallback) semana {seg.strftime('%d/%m/%Y')}")
 
 def get_espera_sheet():
     """Retorna a aba 'Espera', criando-a se não existir.
@@ -47,6 +180,10 @@ def home():
 
 @app.route("/agenda", methods=["GET"])
 def agenda():
+    try:
+        tentar_limpeza_semana()
+    except Exception as e:
+        print(f"[limpeza] erro (agenda segue): {e}")
     valores = sheet.get_all_values()
     return jsonify(valores)
 
