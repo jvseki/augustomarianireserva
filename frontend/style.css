@@ -117,12 +117,121 @@ header { margin-bottom: 22px; }
   box-shadow: 3px 3px 0 #080f09, 0 6px 18px rgba(0,0,0,.22);
 }
 
+.logo-text { min-width: 0; flex: 1; }
+
 header h1 {
   font-family: 'Architects Daughter', cursive;
-  font-size: clamp(17px, 4vw, 23px);
-  color: var(--ink); line-height: 1.2;
+  font-size: clamp(15px, 3.5vw, 21px);
+  color: var(--ink); line-height: 1.15;
+  margin-top: 6px;
 }
-.school-sub { font-size: 11px; color: var(--ink2); font-weight: 600; margin-top: 2px; }
+
+.school-lab-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ink2);
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+}
+
+/* ── Identidade da escola ── */
+.school-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  line-height: 1.25;
+}
+
+.school-ribbon {
+  display: inline-block;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  line-height: 1.2;
+}
+
+.school-name {
+  font-family: 'Architects Daughter', cursive;
+  font-weight: 700;
+  margin: 6px 0 0;
+  line-height: 1.2;
+}
+
+.school-lab {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  margin: 4px 0 0;
+  letter-spacing: 0.02em;
+}
+
+/* Login — painel escuro (desktop) */
+.school-brand--login-dark {
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(200, 232, 204, 0.2);
+  width: 100%;
+}
+.school-brand--login-dark .school-ribbon {
+  background: rgba(245, 230, 184, 0.15);
+  color: #f5e6b8;
+  border: 1px solid rgba(245, 230, 184, 0.35);
+}
+.school-brand--login-dark .school-name {
+  font-size: clamp(20px, 3vw, 26px);
+  color: #fff;
+  margin-top: 10px;
+}
+.school-brand--login-dark .school-lab {
+  color: rgba(184, 220, 192, 0.85);
+  font-size: 12px;
+}
+
+/* Login — card mobile */
+.school-brand--login-card {
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  margin-bottom: 4px;
+}
+.school-brand--login-card .school-ribbon {
+  background: var(--hdr);
+  color: var(--hdr-text);
+  border: 1.5px solid #080f09;
+  box-shadow: 2px 2px 0 #080f09;
+}
+.school-brand--login-card .school-name {
+  font-size: clamp(18px, 5vw, 22px);
+  color: var(--ink);
+  margin-top: 10px;
+}
+.school-brand--login-card .school-lab {
+  color: var(--ink2);
+}
+
+/* Header do app (após login) */
+.school-brand--header {
+  margin-bottom: 0;
+}
+.school-brand--header .school-ribbon {
+  font-size: 8px;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #1a3d1f 0%, #2d5a34 100%);
+  color: #c8e8cc;
+  border: 1px solid rgba(24, 42, 26, 0.25);
+  box-shadow: 1px 1px 0 rgba(8, 15, 9, 0.2);
+}
+.school-brand--header .school-name {
+  font-size: clamp(13px, 3.2vw, 16px);
+  color: var(--hdr);
+  margin-top: 5px;
+  max-width: 100%;
+}
 
 .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
@@ -1098,19 +1207,11 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 
   .login-brand-title {
     font-family: 'Architects Daughter', cursive;
-    font-size: 34px;
+    font-size: 28px;
     font-weight: 900;
     color: #c8e8cc;
     line-height: 1.2;
-    margin-bottom: 10px;
-  }
-
-  .login-brand-school {
-    font-size: 15px;
-    color: rgba(184, 220, 192, 0.65);
-    font-weight: 600;
-    margin-bottom: 48px;
-    letter-spacing: .2px;
+    margin-bottom: 40px;
   }
 
   /* Steps dentro do painel esquerdo no desktop */
@@ -1164,8 +1265,8 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 
   /* No desktop, esconde logo/título/escola dentro do card (ficam no brand) */
   .login-card .login-logo,
+  .login-card .school-brand--login-card,
   .login-card .login-title,
-  .login-card .login-school,
   .login-card .login-steps {
     display: none;
   }
@@ -1221,13 +1322,7 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   font-weight: 900;
   color: #1a1610;
   margin-bottom: 5px;
-}
-
-.login-school {
-  font-size: 14px;
-  color: #6b5e4a;
-  margin-bottom: 30px;
-  font-weight: 600;
+  margin-top: 8px;
 }
 
 .login-steps {
@@ -1471,6 +1566,25 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 
   .header-top {
     gap: 8px;
+    align-items: flex-start;
+  }
+
+  .logo-area {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .school-brand--header .school-name {
+    font-size: 13px;
+  }
+
+  header h1 {
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  .school-lab-header {
+    font-size: 9px;
   }
 
   .cal-wrap {

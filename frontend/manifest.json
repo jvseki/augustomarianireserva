@@ -1,7 +1,7 @@
 {
-  "name": "Agendamento de Notebooks",
+  "name": "Notebooks · EE Dr. Augusto Mariani",
   "short_name": "Notebooks",
-  "description": "Sistema de agendamento do laboratório de informática",
+  "description": "Escola Estadual Dr. Augusto Mariani — Laboratório de Informática",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f4efe4",
