@@ -1823,9 +1823,9 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 ══════════════════════════════════════ */
 .wm-anchor {
   position: fixed;
-  right: max(10px, var(--safe-right, 0px));
-  bottom: max(10px, var(--safe-bottom, 0px));
-  z-index: 40;
+  right: max(12px, var(--safe-right, 0px));
+  bottom: max(12px, var(--safe-bottom, 0px));
+  z-index: 2;
   pointer-events: none;
   user-select: none;
 }
@@ -1897,13 +1897,13 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 }
 
 .app-dev-footer {
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 12px 4px;
-  margin-bottom: -6px;
+  gap: 5px;
+  padding: 14px 12px 6px;
+  margin-top: 4px;
   pointer-events: none;
   user-select: none;
 }
@@ -1930,10 +1930,39 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 }
 
 @media (max-width: 699px) {
-  .wm-mark { font-size: 11px; letter-spacing: 0.18em; }
-  .wm-author { font-size: 7px; max-width: 110px; }
-  .wm-card { padding: 6px 9px; }
-  .app-dev-text { display: none; }
+  /* No celular: sem marca flutuante — só crédito no fim da rolagem */
+  .wm-anchor {
+    display: none !important;
+  }
+
+  #app .app-dev-footer {
+    display: flex;
+    padding: 12px 8px calc(16px + var(--safe-bottom));
+    margin-top: 8px;
+    border-top: 1px dashed rgba(212, 200, 174, 0.85);
+  }
+
+  .app-dev-mark {
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    color: rgba(24, 42, 26, 0.18);
+  }
+
+  .app-dev-text {
+    display: inline;
+    font-size: 8px;
+    color: rgba(24, 42, 26, 0.14);
+  }
+
+  #app.page-wrap {
+    padding-bottom: 0;
+  }
+}
+
+@media (min-width: 700px) {
+  #app .app-dev-footer {
+    display: none;
+  }
 }
 
 @media (min-width: 820px) {
