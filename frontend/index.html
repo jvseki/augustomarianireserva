@@ -304,12 +304,7 @@
       <input type="text" id="nome-input" placeholder="Nome completo..."
         autocomplete="name" autocorrect="off" autocapitalize="words" enterkeyhint="next">
     </div>
-    <div class="sec-label">⏰ Horários — toque para selecionar</div>
-    <div class="horario-bloco-btns" id="horario-bloco-btns">
-      <button type="button" class="bloco-btn" onclick="selecionarBlocoHorarios('manha')">☀️ Manhã</button>
-      <button type="button" class="bloco-btn" onclick="selecionarBlocoHorarios('tarde')">🌤️ Tarde</button>
-      <button type="button" class="bloco-btn bloco-btn-clear" onclick="selecionarBlocoHorarios('limpar')">✕ Limpar</button>
-    </div>
+    <div class="sec-label">⏰ Horários — toque para selecionar (um ou mais)</div>
     <div id="horarios-lista"></div>
     <div id="resumo-selecao">Nenhum horário selecionado</div>
     <div class="sec-label">🎒 Equipamentos — selecione um ou mais</div>
@@ -399,9 +394,6 @@ function slotTotalmenteLotado(disp) {
 }
 
 const LINHAS_INTERVALO = new Set([5, 12]);
-/** Linhas de aula (exclui intervalos 5 e 12) */
-const BLOCO_MANHA = [2, 3, 4, 6, 7, 8];
-const BLOCO_TARDE = [9, 10, 11, 13, 14, 15];
 let primeiraCargaAgenda = true;
 const HORARIOS = {
   2:  ["07:00","07:50"], 3:  ["07:50","08:40"], 4:  ["08:40","09:30"],
@@ -1187,47 +1179,16 @@ function abrirModalDia(coluna,diaNome,dados,linhaPreSel=null) {
   document.getElementById("overlay").classList.add("open");
 }
 
-function horarioSelecionavel(coluna, ln, dados) {
-  const ld = dados[ln - 1];
-  if (!ld || !HORARIOS[ln]) return false;
-  if (LINHAS_INTERVALO.has(ln)) return false;
-  if (ePassadoHoje(coluna, ln)) return false;
-  const celVal = ld[coluna - 1] || "";
-  const val = celVal.trim().toUpperCase().replace(/\s+/g, " ");
-  if (val === "BLOQUEADO") return false;
-  if (celVal.includes("|")) {
-    const disp = dispSlot(coluna, ln, dados);
-    if (slotTotalmenteLotado(disp)) return false;
-  }
-  return true;
-}
-
+/** Sincroniza classe .selecionado com horariosSelecionados (evita “verde preso” no celular) */
 function marcarBotoesHorarioSelecionados() {
   const lista = document.getElementById("horarios-lista");
   if (!lista) return;
   lista.querySelectorAll(".horario-btn[data-ln]").forEach(btn => {
     const ln = parseInt(btn.dataset.ln, 10);
-    btn.classList.toggle("selecionado", horariosSelecionados.includes(ln));
+    const on = horariosSelecionados.includes(ln);
+    btn.classList.toggle("selecionado", on);
+    if (!on) btn.blur();
   });
-}
-
-function selecionarBlocoHorarios(bloco) {
-  const col = modalDiaColuna;
-  const dados = dadosGlobais;
-  if (!col || !dados.length) return;
-  if (bloco === "limpar") {
-    horariosSelecionados = [];
-  } else {
-    const linhas = bloco === "manha" ? BLOCO_MANHA : BLOCO_TARDE;
-    horariosSelecionados = linhas.filter(ln => horarioSelecionavel(col, ln, dados));
-    if (!horariosSelecionados.length) {
-      showToast(bloco === "manha" ? "Nenhum horário da manhã disponível." : "Nenhum horário da tarde disponível.", "error-toast");
-    }
-  }
-  sincronizarEquipComHorarios(col, dados);
-  marcarBotoesHorarioSelecionados();
-  atualizarResumo();
-  renderEquipRows(col, dados);
 }
 
 function renderHorariosBtns(coluna,dados,linhaPreSel) {
@@ -1273,18 +1234,20 @@ function renderHorariosBtns(coluna,dados,linhaPreSel) {
       }
       const tag=slotDispTag(coluna,ln,dados);
       btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-disp">${tag}</span>${extra}</div>`;
-      if (linhaPreSel === ln || horariosSelecionados.includes(ln)) btn.classList.add("selecionado");
       btn.onclick=()=>toggleHorario(ln,btn,coluna,dados);
     }
     c.appendChild(btn);
   }
+  marcarBotoesHorarioSelecionados();
   atualizarResumo();
 }
 
 function toggleHorario(ln,btn,coluna,dados) {
   const idx=horariosSelecionados.indexOf(ln);
-  if(idx===-1){horariosSelecionados.push(ln);btn.classList.add("selecionado");}
-  else{horariosSelecionados.splice(idx,1);btn.classList.remove("selecionado");}
+  if(idx===-1) horariosSelecionados.push(ln);
+  else horariosSelecionados.splice(idx,1);
+  if (btn) btn.blur();
+  marcarBotoesHorarioSelecionados();
   const col = coluna || modalDiaColuna;
   const d = dados || dadosGlobais;
   sincronizarEquipComHorarios(col, d);
@@ -1321,7 +1284,7 @@ function atualizarResumo() {
   const n = horariosSelecionados.length;
   if (n === 0) {
     el.textContent = "Nenhum horário selecionado";
-    el.className = "";
+    el.className = "resumo-vazio";
     return;
   }
   const base = `${n} horário${n > 1 ? "s" : ""} selecionado${n > 1 ? "s" : ""}`;
