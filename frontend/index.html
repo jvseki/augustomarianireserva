@@ -74,8 +74,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <link rel="stylesheet" href="style.css">
+  <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
+
+<!-- Marca d'água — autoria do sistema (não bloqueia cliques) -->
+<div class="wm-anchor" aria-hidden="true">
+  <div class="wm-card" title="Sistema desenvolvido por JVSEKI">
+    <span class="wm-mark">JVSEKI</span>
+    <span class="wm-divider"></span>
+    <span class="wm-author">João Victor Seki Mantovani</span>
+  </div>
+</div>
 
 <!-- ═══════════════════════════════════
      TELA DE BOAS-VINDAS (antes do login)
@@ -221,6 +231,10 @@
           </div>
         </div>
 
+        <p class="login-dev-credit">
+          Sistema <strong>JVSEKI</strong> · licenciado à<br>
+          <span class="login-dev-school">Escola Estadual Dr. Augusto Mariani</span>
+        </p>
       </div>
     </div>
 
@@ -287,6 +301,12 @@
       <span class="badge expirado">🕐 Passado</span>
     </div>
   </header>
+
+  <footer class="app-dev-footer" aria-hidden="true">
+    <span class="app-dev-mark">JVSEKI</span>
+    <span class="app-dev-sep">·</span>
+    <span class="app-dev-text">desenvolvido por João Victor Seki Mantovani</span>
+  </footer>
 
   <main>
     <div id="loading" class="loading-wrap">
@@ -946,6 +966,7 @@ function renderTabela(dados) {
     const tr=document.createElement("tr");
     const linhaNum=i+1;
     linha.forEach((celula,j)=>{
+      if (j >= 6) return; /* colunas A–F — ignora marca d'água em G+ */
       const isHdr=i===0,isLbl=j===0;
       const coluna=j+1;
       const td=document.createElement(isHdr?"th":"td");

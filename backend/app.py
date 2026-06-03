@@ -83,6 +83,47 @@ def config_set(chave, valor):
     ws.append_row([chave, valor])
 
 
+MARCA_AGUA_CHAVE = "marca_agua_jvseki_v1"
+MARCA_AUTOR = "João Victor Seki Mantovani"
+MARCA_NICK = "JVSEKI"
+
+
+def garantir_marca_agua_planilha():
+    """
+    Grava créditos na coluna G da agenda (canto, fora de B–F) e na aba Config.
+    Não é apagado pela limpeza semanal (só B2:F15).
+    """
+    if config_get(MARCA_AGUA_CHAVE):
+        return
+    try:
+        sheet.update_cell(1, 7, MARCA_NICK)
+        sheet.update_cell(2, 7, MARCA_AUTOR)
+        sheet.update_cell(3, 7, "Sistema de reservas · laboratório")
+
+        try:
+            sheet.format(
+                "G1:G3",
+                {
+                    "textFormat": {
+                        "foregroundColor": {"red": 0.55, "green": 0.55, "blue": 0.55},
+                        "italic": True,
+                        "fontSize": 9,
+                    },
+                    "horizontalAlignment": "RIGHT",
+                    "verticalAlignment": "TOP",
+                },
+            )
+        except Exception:
+            pass
+
+        config_set("desenvolvedor", f"{MARCA_NICK} — {MARCA_AUTOR}")
+        config_set("licenciado_para", "Escola Estadual Dr. Augusto Mariani")
+        config_set(MARCA_AGUA_CHAVE, "ok")
+        print(f"[marca] créditos {MARCA_NICK} gravados na planilha")
+    except Exception as e:
+        print(f"[marca] erro ao gravar: {e}")
+
+
 def agenda_tem_reservas(valores):
     for i, row in enumerate(valores or []):
         if i == 0:
@@ -180,6 +221,10 @@ def home():
 
 @app.route("/agenda", methods=["GET"])
 def agenda():
+    try:
+        garantir_marca_agua_planilha()
+    except Exception as e:
+        print(f"[marca] erro (agenda segue): {e}")
     try:
         tentar_limpeza_semana()
     except Exception as e:

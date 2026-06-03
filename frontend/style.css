@@ -1817,3 +1817,133 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   padding: 2px 6px !important;
   opacity: .7;
 }
+
+/* ══════════════════════════════════════
+   MARCA D'ÁGUA — JVSEKI
+══════════════════════════════════════ */
+.wm-anchor {
+  position: fixed;
+  right: max(10px, var(--safe-right, 0px));
+  bottom: max(10px, var(--safe-bottom, 0px));
+  z-index: 40;
+  pointer-events: none;
+  user-select: none;
+}
+
+.wm-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 8px 11px;
+  border-radius: 10px;
+  background: rgba(255, 253, 247, 0.72);
+  border: 1px solid rgba(24, 42, 26, 0.08);
+  box-shadow: 0 2px 12px rgba(24, 42, 26, 0.06);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.wm-mark {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: rgba(24, 42, 26, 0.22);
+  line-height: 1;
+}
+
+.wm-divider {
+  display: block;
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(24, 42, 26, 0.12), transparent);
+  margin: 1px 0;
+}
+
+.wm-author {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(24, 42, 26, 0.14);
+  text-transform: uppercase;
+  max-width: 140px;
+  text-align: right;
+  line-height: 1.3;
+}
+
+.login-dev-credit {
+  margin-top: 28px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink2);
+  line-height: 1.5;
+  text-align: center;
+}
+.login-dev-credit strong {
+  font-family: 'DM Mono', monospace;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: rgba(24, 42, 26, 0.45);
+  font-size: 11px;
+}
+.login-dev-school {
+  font-size: 10px;
+  color: var(--ink2);
+  font-weight: 700;
+}
+
+.app-dev-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px 4px;
+  margin-bottom: -6px;
+  pointer-events: none;
+  user-select: none;
+}
+.app-dev-mark {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: rgba(24, 42, 26, 0.2);
+}
+.app-dev-sep {
+  color: rgba(24, 42, 26, 0.12);
+  font-size: 10px;
+}
+.app-dev-text {
+  font-size: 9px;
+  font-weight: 600;
+  color: rgba(24, 42, 26, 0.16);
+  letter-spacing: 0.02em;
+}
+
+#app .wm-anchor .wm-card {
+  background: rgba(244, 239, 228, 0.85);
+}
+
+@media (max-width: 699px) {
+  .wm-mark { font-size: 11px; letter-spacing: 0.18em; }
+  .wm-author { font-size: 7px; max-width: 110px; }
+  .wm-card { padding: 6px 9px; }
+  .app-dev-text { display: none; }
+}
+
+@media (min-width: 820px) {
+  .tela-login .wm-card {
+    background: rgba(12, 22, 14, 0.35);
+    border-color: rgba(200, 232, 204, 0.15);
+  }
+  .tela-login .wm-mark { color: rgba(200, 232, 204, 0.35); }
+  .tela-login .wm-author { color: rgba(184, 220, 192, 0.28); }
+  .tela-login .wm-divider {
+    background: linear-gradient(90deg, transparent, rgba(200, 232, 204, 0.2), transparent);
+  }
+}
