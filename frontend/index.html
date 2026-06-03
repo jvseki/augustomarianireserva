@@ -305,6 +305,11 @@
         autocomplete="name" autocorrect="off" autocapitalize="words" enterkeyhint="next">
     </div>
     <div class="sec-label">⏰ Horários — toque para selecionar</div>
+    <div class="horario-bloco-btns" id="horario-bloco-btns">
+      <button type="button" class="bloco-btn" onclick="selecionarBlocoHorarios('manha')">☀️ Manhã</button>
+      <button type="button" class="bloco-btn" onclick="selecionarBlocoHorarios('tarde')">🌤️ Tarde</button>
+      <button type="button" class="bloco-btn bloco-btn-clear" onclick="selecionarBlocoHorarios('limpar')">✕ Limpar</button>
+    </div>
     <div id="horarios-lista"></div>
     <div id="resumo-selecao">Nenhum horário selecionado</div>
     <div class="sec-label">🎒 Equipamentos — selecione um ou mais</div>
@@ -394,6 +399,10 @@ function slotTotalmenteLotado(disp) {
 }
 
 const LINHAS_INTERVALO = new Set([5, 12]);
+/** Linhas de aula (exclui intervalos 5 e 12) */
+const BLOCO_MANHA = [2, 3, 4, 6, 7, 8];
+const BLOCO_TARDE = [9, 10, 11, 13, 14, 15];
+let primeiraCargaAgenda = true;
 const HORARIOS = {
   2:  ["07:00","07:50"], 3:  ["07:50","08:40"], 4:  ["08:40","09:30"],
   5:  ["09:30","09:50"], 6:  ["09:50","10:40"], 7:  ["10:40","11:30"],
@@ -706,6 +715,32 @@ function dispSelecao(coluna,linhas,dados) {
   },total);
 }
 
+/** Disponibilidade de um equipamento varia entre os horários marcados? */
+function equipDispDiverge(coluna, linhas, dados, tipo) {
+  if (!linhas || linhas.length < 2) return false;
+  const vals = linhas.map(ln => dispSlot(coluna, ln, dados)[tipo] ?? 0);
+  return Math.min(...vals) !== Math.max(...vals);
+}
+
+function labelHorario(ln) {
+  const h = HORARIOS[ln];
+  return h ? `${h[0]}–${h[1]}` : `linha ${ln}`;
+}
+
+/** Ajusta quantidades ao menor horário; desliga equipamento esgotado em algum slot */
+function sincronizarEquipComHorarios(coluna, dados) {
+  if (!horariosSelecionados.length) return;
+  const disp = dispSelecao(coluna, horariosSelecionados, dados);
+  Object.keys(ESTOQUE).forEach(tipo => {
+    if (disp[tipo] <= 0) {
+      equipState[tipo].ativo = false;
+      equipState[tipo].qtd = 1;
+    } else if (equipState[tipo].ativo && equipState[tipo].qtd > disp[tipo]) {
+      equipState[tipo].qtd = disp[tipo];
+    }
+  });
+}
+
 function dispDia(coluna,dados) {
   const uso=estoqueZerado();
   let algumFuturo=false;
@@ -747,29 +782,33 @@ function slotDispTag(coluna,ln,dados) {
 // CARREGAR
 // ════════════════════════════════════════
 async function carregarAgenda() {
-  document.getElementById("loading").style.display="flex";
+  const loadingEl = document.getElementById("loading");
+  loadingEl.style.display="flex";
+  if (primeiraCargaAgenda) {
+    loadingEl.querySelector(".loading-text").textContent =
+      "Carregando agenda… (na 1ª vez do dia o servidor pode levar até 1 min)";
+  }
   document.getElementById("table-container").style.display="none";
   document.getElementById("cards-view").innerHTML="";
+  const timeoutMs = primeiraCargaAgenda ? 45000 : 12000;
   try {
-    const r1=await fetchComTimeout(`${API}/agenda`);
-    if (!r1.ok) throw new Error("Falha ao carregar agenda inicial");
-    const d1=await r1.json();
+    const r1 = await fetchComTimeout(`${API}/agenda`, {}, timeoutMs);
+    if (!r1.ok) throw new Error("Falha ao carregar agenda");
+    const d1 = await r1.json();
     await resetarPassadosHoje(d1);
-    const r2=await fetchComTimeout(`${API}/agenda`);
-    if (!r2.ok) throw new Error("Falha ao recarregar agenda");
-    const dados=await r2.json();
-    dadosGlobais=dados;
     await verificarPromocoes();
-    const r3=await fetchComTimeout(`${API}/agenda`);
-    if (!r3.ok) throw new Error("Falha ao carregar agenda final");
-    const dadosFinal=await r3.json();
-    dadosGlobais=dadosFinal;
+    const r2 = await fetchComTimeout(`${API}/agenda`, {}, timeoutMs);
+    if (!r2.ok) throw new Error("Falha ao atualizar agenda");
+    const dadosFinal = await r2.json();
+    dadosGlobais = dadosFinal;
+    primeiraCargaAgenda = false;
+    loadingEl.querySelector(".loading-text").textContent = "Carregando agenda...";
     renderCalendario();
     renderTabela(dadosFinal);
     renderCards(dadosFinal);
     atualizarStockHeader(dadosFinal);
   } catch(e) {
-    document.getElementById("loading").innerHTML=`<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px;text-align:center">⚠️ Erro ao conectar com o servidor</p>`;
+    document.getElementById("loading").innerHTML=`<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px;text-align:center;padding:12px">⚠️ Erro ao conectar com o servidor.<br><span style="font-size:13px">Aguarde 1 min e toque ↺ para tentar de novo.</span></p>`;
   }
 }
 
@@ -1148,6 +1187,49 @@ function abrirModalDia(coluna,diaNome,dados,linhaPreSel=null) {
   document.getElementById("overlay").classList.add("open");
 }
 
+function horarioSelecionavel(coluna, ln, dados) {
+  const ld = dados[ln - 1];
+  if (!ld || !HORARIOS[ln]) return false;
+  if (LINHAS_INTERVALO.has(ln)) return false;
+  if (ePassadoHoje(coluna, ln)) return false;
+  const celVal = ld[coluna - 1] || "";
+  const val = celVal.trim().toUpperCase().replace(/\s+/g, " ");
+  if (val === "BLOQUEADO") return false;
+  if (celVal.includes("|")) {
+    const disp = dispSlot(coluna, ln, dados);
+    if (slotTotalmenteLotado(disp)) return false;
+  }
+  return true;
+}
+
+function marcarBotoesHorarioSelecionados() {
+  const lista = document.getElementById("horarios-lista");
+  if (!lista) return;
+  lista.querySelectorAll(".horario-btn[data-ln]").forEach(btn => {
+    const ln = parseInt(btn.dataset.ln, 10);
+    btn.classList.toggle("selecionado", horariosSelecionados.includes(ln));
+  });
+}
+
+function selecionarBlocoHorarios(bloco) {
+  const col = modalDiaColuna;
+  const dados = dadosGlobais;
+  if (!col || !dados.length) return;
+  if (bloco === "limpar") {
+    horariosSelecionados = [];
+  } else {
+    const linhas = bloco === "manha" ? BLOCO_MANHA : BLOCO_TARDE;
+    horariosSelecionados = linhas.filter(ln => horarioSelecionavel(col, ln, dados));
+    if (!horariosSelecionados.length) {
+      showToast(bloco === "manha" ? "Nenhum horário da manhã disponível." : "Nenhum horário da tarde disponível.", "error-toast");
+    }
+  }
+  sincronizarEquipComHorarios(col, dados);
+  marcarBotoesHorarioSelecionados();
+  atualizarResumo();
+  renderEquipRows(col, dados);
+}
+
 function renderHorariosBtns(coluna,dados,linhaPreSel) {
   const c=document.getElementById("horarios-lista");
   c.innerHTML="";
@@ -1165,6 +1247,8 @@ function renderHorariosBtns(coluna,dados,linhaPreSel) {
 
     const btn=document.createElement("button");
     btn.className="horario-btn";
+    btn.type="button";
+    btn.dataset.ln=String(ln);
 
     if (passado) {
       btn.classList.add("passado"); btn.disabled=true;
@@ -1189,7 +1273,7 @@ function renderHorariosBtns(coluna,dados,linhaPreSel) {
       }
       const tag=slotDispTag(coluna,ln,dados);
       btn.innerHTML=`<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-disp">${tag}</span>${extra}</div>`;
-      if(ln===linhaPreSel) btn.classList.add("selecionado");
+      if (linhaPreSel === ln || horariosSelecionados.includes(ln)) btn.classList.add("selecionado");
       btn.onclick=()=>toggleHorario(ln,btn,coluna,dados);
     }
     c.appendChild(btn);
@@ -1201,19 +1285,60 @@ function toggleHorario(ln,btn,coluna,dados) {
   const idx=horariosSelecionados.indexOf(ln);
   if(idx===-1){horariosSelecionados.push(ln);btn.classList.add("selecionado");}
   else{horariosSelecionados.splice(idx,1);btn.classList.remove("selecionado");}
+  const col = coluna || modalDiaColuna;
+  const d = dados || dadosGlobais;
+  sincronizarEquipComHorarios(col, d);
   atualizarResumo();
-  renderEquipRows(coluna||modalDiaColuna,dados||dadosGlobais);
+  renderEquipRows(col, d);
+}
+
+function textoAvisoDispDivergente(coluna, dados) {
+  if (horariosSelecionados.length < 2) return "";
+  const partes = [];
+  Object.keys(ESTOQUE).forEach(tipo => {
+    if (!equipDispDiverge(coluna, horariosSelecionados, dados, tipo)) return;
+    const det = horariosSelecionados
+      .map(ln => {
+        const q = dispSlot(coluna, ln, dados)[tipo];
+        return `${labelHorario(ln)}: ${q}`;
+      })
+      .join(" · ");
+    const min = dispSelecao(coluna, horariosSelecionados, dados)[tipo];
+    partes.push(
+      `<strong>${ESTOQUE[tipo].nome}</strong> (${det}). Máximo em todos os horários: <strong>${min}</strong>.`
+    );
+  });
+  if (!partes.length) return "";
+  return (
+    "⚠️ A disponibilidade muda entre os horários — " +
+    partes.join(" ") +
+    " Se precisar de quantidades diferentes, reserve manhã e tarde em duas etapas."
+  );
 }
 
 function atualizarResumo() {
-  const n=horariosSelecionados.length;
-  document.getElementById("resumo-selecao").textContent=
-    n===0?"Nenhum horário selecionado":`${n} horário${n>1?"s":""} selecionado${n>1?"s":""}`;
+  const el = document.getElementById("resumo-selecao");
+  const n = horariosSelecionados.length;
+  if (n === 0) {
+    el.textContent = "Nenhum horário selecionado";
+    el.className = "";
+    return;
+  }
+  const base = `${n} horário${n > 1 ? "s" : ""} selecionado${n > 1 ? "s" : ""}`;
+  const aviso = textoAvisoDispDivergente(modalDiaColuna, dadosGlobais);
+  if (aviso) {
+    el.innerHTML = `${base}<div class="resumo-aviso">${aviso}</div>`;
+    el.className = "com-aviso";
+  } else {
+    el.textContent = base;
+    el.className = "";
+  }
 }
 
 function renderEquipRows(coluna,dados) {
   const c=document.getElementById("equip-rows");
   c.innerHTML="";
+  if (horariosSelecionados.length) sincronizarEquipComHorarios(coluna, dados);
   const disp=horariosSelecionados.length>0
     ?dispSelecao(coluna,horariosSelecionados,dados)
     :Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,ESTOQUE[k].total]));
@@ -1225,9 +1350,17 @@ function renderEquipRows(coluna,dados) {
     row.className=`equip-row ${tipo}`;
     row.id=`equip-row-${tipo}`;
     const n=horariosSelecionados.length;
-    const dispLabel=d>0
-      ?`${d} disponíve${d===1?"l":"is"}${n>1?` (mín. entre os ${n} horários)`:""}`
-      :"esgotado neste horário";
+    let dispLabel;
+    if (d <= 0) {
+      dispLabel = n > 1 ? "esgotado em pelo menos um horário" : "esgotado neste horário";
+    } else if (n > 1 && equipDispDiverge(coluna, horariosSelecionados, dados, tipo)) {
+      const det = horariosSelecionados
+        .map(ln => `${HORARIOS[ln][0]}: ${dispSlot(coluna, ln, dados)[tipo]}`)
+        .join(" · ");
+      dispLabel = `máx. ${d} em todos (${det})`;
+    } else {
+      dispLabel = `${d} disponíve${d === 1 ? "l" : "is"}${n > 1 ? ` em cada um dos ${n} horários` : ""}`;
+    }
     const jaAtivo=equipState[tipo].ativo&&d>0;
     const jaQtd=Math.min(equipState[tipo].qtd,d>0?d:1);
     const filaBtn=d<=0
@@ -1310,8 +1443,19 @@ async function confirmarAcao() {
   const dispMin=dispSelecao(modalDiaColuna,horariosSelecionados,dadosGlobais);
   for(const t of sel){
     if(equipState[t].qtd>dispMin[t]){
-      err.textContent=`⚠️ Só há ${dispMin[t]} ${ESTOQUE[t].label}(s) disponíveis em todos os horários.`;
+      err.textContent=`⚠️ Só há ${dispMin[t]} ${ESTOQUE[t].label}(s) disponíveis em todos os horários selecionados.`;
       return;
+    }
+  }
+  for (const ln of horariosSelecionados) {
+    const dispLn = dispSlot(modalDiaColuna, ln, dadosGlobais);
+    for (const t of sel) {
+      if (equipState[t].qtd > dispLn[t]) {
+        err.textContent =
+          `⚠️ Em ${labelHorario(ln)} só há ${dispLn[t]} ${ESTOQUE[t].label}(s), mas você pediu ${equipState[t].qtd}. ` +
+          `Reduza a quantidade ou desmarque horários com menos disponibilidade (ex.: reserve manhã e tarde separado).`;
+        return;
+      }
     }
   }
 
@@ -1323,7 +1467,15 @@ async function confirmarAcao() {
   btn.textContent="Salvando...";btn.disabled=true;
 
   let salvos=0,erros=0;
+  const falhasHorario=[];
   for(const ln of horariosSelecionados){
+    const dispLn = dispSlot(modalDiaColuna, ln, dadosGlobais);
+    const bloqueado = sel.some(t => equipState[t].qtd > dispLn[t]);
+    if (bloqueado) {
+      falhasHorario.push(labelHorario(ln));
+      erros++;
+      continue;
+    }
     try{
       const ld=dadosGlobais[ln-1];
       const valorAtual=ld?(ld[modalDiaColuna-1]||"").trim():"";
@@ -1333,7 +1485,14 @@ async function confirmarAcao() {
       const res=await fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:ln,coluna:modalDiaColuna,valor:valorFinal})},12000);
       if(!res.ok) throw new Error();
       salvos++;
-    }catch(e){erros++;}
+      const ld2=dadosGlobais[ln-1];
+      if (ld2) ld2[modalDiaColuna-1]=valorFinal;
+    }catch(e){erros++;falhasHorario.push(labelHorario(ln));}
+  }
+  if (falhasHorario.length && salvos === 0) {
+    err.textContent=`✗ Não foi possível salvar (${falhasHorario.join(", ")}). Atualize a agenda e tente de novo.`;
+    btn.textContent="✔ Confirmar Reserva";btn.disabled=false;
+    return;
   }
 
   btn.textContent="✔ Confirmar Reserva";btn.disabled=false;

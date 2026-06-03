@@ -139,9 +139,12 @@ const HORARIOS = {
 ### Múltiplas reservas e estoque
 - Vários professores no mesmo horário se a soma dos equipamentos couber no estoque.
 - Lista de espera por tipo de equipamento; `POST /promover` promove quando abre vaga.
+- Reserva em vários horários: quantidade limitada ao **menor** disponível entre eles; aviso se manhã ≠ tarde.
+- Botões **Manhã** / **Tarde** no modal (linhas 2–4, 6–8 e 9–11, 13–15; intervalos 5 e 12 ignorados).
 
 ### Atualização automática
 - Agenda recarrega a cada **60 segundos** após login.
+- Carregamento usa **2** chamadas `/agenda` (antes eram 3); 1ª carga do dia: timeout até 45 s (Render acordando).
 
 ---
 

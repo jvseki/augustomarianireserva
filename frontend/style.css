@@ -597,6 +597,48 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   background:var(--green-bg); border:1.5px solid var(--green-bd);
   border-radius:var(--radius-sm); padding:6px 12px; margin-bottom:14px; text-align:center;
 }
+#resumo-selecao.com-aviso {
+  color: var(--ink2);
+  background: var(--orange-bg, #fff8ed);
+  border-color: var(--orange-bd, #f0c878);
+  text-align: left;
+}
+#resumo-selecao .resumo-aviso {
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #9a5b00;
+}
+#resumo-selecao .resumo-aviso strong { font-weight: 800; }
+
+.horario-bloco-btns {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.bloco-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  font-family: 'DM Sans', sans-serif;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  background: #fffdf7;
+  color: var(--ink2);
+  cursor: pointer;
+}
+.bloco-btn:active { transform: scale(.98); }
+.bloco-btn-clear {
+  flex: 0 0 auto;
+  padding: 8px 12px;
+  color: var(--red);
+  border-color: var(--red-bd);
+  background: var(--red-bg);
+}
 
 /* ── Equipamentos ── */
 .equip-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
