@@ -1,14 +1,14 @@
 // ══════════════════════════════════════
 // Service Worker — Agendamento de Notebooks
-// v3 — index.html NUNCA é cacheado
-//      (sempre pega versão mais recente do Vercel)
+// v4 — index.html cacheado com network-first
+//      (sempre tenta rede; usa cache só se offline)
 // ══════════════════════════════════════
 
-const CACHE_NAME = "notebooks-v15";
+const CACHE_NAME = "notebooks-v16";
 
-// Só cacheia assets que mudam raramente (fontes, css, ícones)
-// index.html é EXCLUÍDO propositalmente
 const ASSETS_ESTATICOS = [
+  "/",
+  "/index.html",
   "/style.css",
   "/manifest.json",
   "/icon-192.png",
@@ -50,13 +50,23 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
 
-  // index.html — SEMPRE rede, nunca cache
-  // Garante que o app sempre carrega a versão mais recente
+  // index.html — network-first: sempre tenta rede e atualiza o cache;
+  // se offline, serve o cache para o app abrir em modo visualização
   if (url.pathname === "/" || url.pathname === "/index.html") {
     event.respondWith(
-      fetch(event.request).catch(() =>
-        caches.match("/index.html").then(c => c || new Response("Offline", { status: 503 }))
-      )
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match("/index.html")
+            .then(c => c || caches.match("/"))
+            .then(c => c || new Response("Offline — abra quando tiver conexão para carregar o app.", { status: 503 }))
+        )
     );
     return;
   }
