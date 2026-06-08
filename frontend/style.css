@@ -93,7 +93,10 @@ body {
     calc(80px + var(--safe-bottom))
     calc(20px + var(--safe-left));
 }
-@media (min-width: 700px) { .page-wrap { padding-left: 84px; } }
+@media (min-width: 700px) {
+  .page-wrap { padding-left: 84px; }
+  #app.page-wrap { max-width: 1360px; }
+}
 
 /* ══════════════════════════════════════
    HEADER
@@ -366,19 +369,28 @@ header h1 {
   border: 2px solid var(--border);
   box-shadow: 4px 4px 0 var(--shadow);
   overflow-x: auto;
+  overflow-y: visible;
   -webkit-overflow-scrolling: touch;
+  max-width: 100%;
 }
 
 @media (max-width: 699px) {
   .table-wrap { border-radius: 12px; }
 }
 
+@media (min-width: 700px) {
+  main { max-width: 100%; overflow-x: visible; }
+}
+
 table {
   width: 100%;
-  min-width: 100%;
+  min-width: 1060px;
   border-collapse: collapse;
   table-layout: fixed;
 }
+
+col.col-hora { width: 128px; }
+col.col-dia  { width: calc((100% - 128px) / 5); }
 
 thead tr { background: var(--hdr); }
 
@@ -540,11 +552,38 @@ td.livre { cursor: pointer; }
 td.livre:hover, td.livre:active { background: var(--green-bg) !important; }
 .livre-label { display: block; font-size: 12px; font-weight: 800; color: var(--green); }
 .slot-disp {
-  display: block; font-size: 10px; font-weight: 600;
-  color: var(--ink2); margin-top: 2px;
-  font-family: 'DM Mono', monospace; letter-spacing: .1px;
-  white-space: normal;
+  display: block;
+  margin-top: 4px;
   line-height: 1.35;
+}
+.slot-disp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+}
+.disp-chip {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  padding: 1px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  background: #f3f0e6;
+  color: var(--ink2);
+  border: 1px solid #ddd4bc;
+}
+.disp-chip.tablet   { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+.disp-chip.prata    { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.disp-chip.preto    { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+.disp-chip.tvremota { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
+.slot-disp-livre {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--green);
 }
 
 td.reservado { cursor: default; }
@@ -1150,7 +1189,7 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 }
 
 /* ── Badges de equipamentos nas células ── */
-.cell-reserva { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; margin-bottom: 2px; }
+.cell-reserva { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 2px; margin-bottom: 2px; }
 .cell-reserva:last-child { margin-bottom: 0; }
 .cell-sep { font-size: 9px; font-weight: 900; color: var(--blue); margin-right: 2px; opacity: .6; }
 .eq-badges { display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: center; }

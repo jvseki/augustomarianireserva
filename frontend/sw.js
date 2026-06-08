@@ -4,7 +4,7 @@
 //      (sempre pega versão mais recente do Vercel)
 // ══════════════════════════════════════
 
-const CACHE_NAME = "notebooks-v15";
+const CACHE_NAME = "notebooks-v17";
 
 // Só cacheia assets que mudam raramente (fontes, css, ícones)
 // index.html é EXCLUÍDO propositalmente
@@ -80,7 +80,23 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  // Demais assets (css, fontes, ícones) — cache first, fallback rede
+  // CSS — rede primeiro (garante atualização visual após deploy)
+  if (url.pathname.endsWith(".css") || url.search.includes("table-fix")) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Demais assets (fontes, ícones) — cache first, fallback rede
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;

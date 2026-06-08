@@ -73,7 +73,7 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=table-fix-2">
   <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
@@ -802,6 +802,14 @@ function slotDispTag(coluna,ln,dados) {
   return p.join(" · ")||"—";
 }
 
+function slotDispTagHtml(coluna,ln,dados) {
+  const s=dispSlot(coluna,ln,dados);
+  const chips=Object.keys(ESTOQUE)
+    .filter(tipo=>(s[tipo]||0)>0)
+    .map(tipo=>`<span class="disp-chip ${tipo}">${ESTOQUE[tipo].emoji}${s[tipo]}</span>`);
+  return chips.length?`<span class="slot-disp-chips">${chips.join("")}</span>`:"—";
+}
+
 // ════════════════════════════════════════
 // CARREGAR
 // ════════════════════════════════════════
@@ -957,6 +965,9 @@ function fmtReservado(valor, coluna, linhaNum) {
 function renderTabela(dados) {
   const tabela=document.getElementById("tabela");
   tabela.innerHTML="";
+  const colgroup=document.createElement("colgroup");
+  colgroup.innerHTML='<col class="col-hora"><col class="col-dia"><col class="col-dia"><col class="col-dia"><col class="col-dia"><col class="col-dia">';
+  tabela.appendChild(colgroup);
   let livre=0,reservado=0;
   const cab=dados[0]||[];
   const hoje=new Date();
@@ -1007,7 +1018,7 @@ function renderTabela(dados) {
         td.className="bloqueado"; td.innerText="Bloqueado";
       } else if (val===""||val==="LIVRE") {
         td.className="livre";
-        const tag=slotDispTag(coluna,linhaNum,dados);
+        const tag=slotDispTagHtml(coluna,linhaNum,dados);
         td.innerHTML=`<span class="livre-label">Livre</span><span class="slot-disp">${tag}</span>`;
         livre++;
         td.onclick=()=>abrirModalDia(coluna,cab[j]||"",dados,linhaNum);
@@ -1018,8 +1029,8 @@ function renderTabela(dados) {
         const minhaResTabela=minhaReservaNaCell(celula);
         if (algumDisp) {
           td.className="livre";
-          const tag=slotDispTag(coluna,linhaNum,dados);
-          td.innerHTML=`<div class="cell-multi">${fmtReservado(celula,coluna,linhaNum)}</div><span class="slot-disp">${tag} livre</span>`;
+          const tag=slotDispTagHtml(coluna,linhaNum,dados);
+          td.innerHTML=`<div class="cell-multi">${fmtReservado(celula,coluna,linhaNum)}</div><span class="slot-disp">${tag}<span class="slot-disp-livre">livre</span></span>`;
           livre++;
           td.onclick=(e)=>{ if(e.target.closest(".meu-badge")) return; abrirModalDia(coluna,cab[j]||"",dados,linhaNum); };
         } else if (minhaResTabela) {
@@ -1036,7 +1047,7 @@ function renderTabela(dados) {
         }
       } else {
         td.className="livre";
-        const tag2=slotDispTag(coluna,linhaNum,dados);
+        const tag2=slotDispTagHtml(coluna,linhaNum,dados);
         td.innerHTML=`<span class="livre-label">Livre</span><span class="slot-disp">${tag2}</span>`;
         livre++;
         td.onclick=()=>abrirModalDia(coluna,cab[j]||"",dados,linhaNum);
