@@ -273,13 +273,6 @@
       <button class="update-banner-close" onclick="document.getElementById('update-banner').style.display='none'">✕</button>
     </div>
 
-    <!-- Banner modo offline (servidor Render dormindo) -->
-    <div class="offline-banner" id="offline-banner" style="display:none">
-      <span class="offline-banner-icon">📴</span>
-      <span id="offline-banner-text">Servidor dormindo — modo visualização</span>
-      <button class="offline-banner-btn" onclick="carregarAgenda()">↺ Reconectar</button>
-    </div>
-
     <div class="stats-row">
       <div class="stat-card green">
         <span class="stat-num" id="count-livre">—</span>
@@ -469,57 +462,6 @@ function limparUsuarioLocal() {
   try {
     localStorage.removeItem(USUARIO_STORAGE_KEY);
   } catch (e) {}
-}
-
-// ── Cache da agenda (modo offline / servidor dormindo) ──
-const AGENDA_CACHE_KEY    = "agenda_cache";
-const AGENDA_CACHE_TS_KEY = "agenda_cache_ts";
-let modoOffline = false;
-
-function salvarAgendaLocal(dados) {
-  try {
-    localStorage.setItem(AGENDA_CACHE_KEY, JSON.stringify(dados));
-    localStorage.setItem(AGENDA_CACHE_TS_KEY, Date.now().toString());
-  } catch(e) {}
-}
-
-function carregarAgendaLocal() {
-  try {
-    const raw = localStorage.getItem(AGENDA_CACHE_KEY);
-    const ts  = localStorage.getItem(AGENDA_CACHE_TS_KEY);
-    if (!raw) return null;
-    return { dados: JSON.parse(raw), ts: ts ? parseInt(ts, 10) : null };
-  } catch(e) { return null; }
-}
-
-function formatarTempoAtras(ts) {
-  if (!ts) return "";
-  const diff = Math.round((Date.now() - ts) / 60000);
-  if (diff < 2) return "há menos de 1 min";
-  if (diff < 60) return `há ${diff} min`;
-  const h = Math.floor(diff / 60);
-  return h === 1 ? "há 1 hora" : `há ${h} horas`;
-}
-
-function ativarModoOffline(dados, ts) {
-  modoOffline = true;
-  atualizarTextoBannerOffline(ts);
-  document.getElementById("offline-banner").style.display = "flex";
-  dadosGlobais = dados;
-  renderCalendario();
-  renderTabela(dados);
-  renderCards(dados);
-  atualizarStockHeader(dados);
-}
-
-function desativarModoOffline() {
-  modoOffline = false;
-  document.getElementById("offline-banner").style.display = "none";
-}
-
-function atualizarTextoBannerOffline(ts) {
-  const texto = document.getElementById("offline-banner-text");
-  if (texto) texto.textContent = `Servidor dormindo — visualização ${formatarTempoAtras(ts)}`;
 }
 
 function handleGoogleLogin(response) {
@@ -865,77 +807,14 @@ function slotDispTag(coluna,ln,dados) {
 // ════════════════════════════════════════
 async function carregarAgenda() {
   const loadingEl = document.getElementById("loading");
-
-  // ── Modo offline: reconecta silenciosamente, sem esconder os dados ──
-  if (modoOffline) {
-    try {
-      const r1 = await fetchComTimeout(`${API}/agenda`, {}, 15000);
-      if (!r1.ok) throw new Error("Falha");
-      const d1 = await r1.json();
-      await resetarPassadosHoje(d1);
-      await verificarPromocoes();
-      const r2 = await fetchComTimeout(`${API}/agenda`, {}, 15000);
-      if (!r2.ok) throw new Error("Falha");
-      const dadosFinal = await r2.json();
-      dadosGlobais = dadosFinal;
-      salvarAgendaLocal(dadosFinal);
-      desativarModoOffline();
-      primeiraCargaAgenda = false;
-      renderCalendario();
-      renderTabela(dadosFinal);
-      renderCards(dadosFinal);
-      atualizarStockHeader(dadosFinal);
-      showToast("✔ Servidor online! Agenda atualizada.", "success");
-    } catch(e) {
-      const ts = localStorage.getItem(AGENDA_CACHE_TS_KEY);
-      atualizarTextoBannerOffline(ts ? parseInt(ts, 10) : null);
-    }
-    return;
-  }
-
-  const cache = carregarAgendaLocal();
-  const temCache = !!(cache && cache.dados && cache.dados.length);
-
-  // ── Tem cache: mostra imediatamente e atualiza em background ──
-  // Evita spinner desnecessário e dá tempo ao servidor acordar (90s)
-  if (temCache && primeiraCargaAgenda) {
-    dadosGlobais = cache.dados;
-    primeiraCargaAgenda = false;
-    renderCalendario();
-    renderTabela(cache.dados);
-    renderCards(cache.dados);
-    atualizarStockHeader(cache.dados);
-    try {
-      const r1 = await fetchComTimeout(`${API}/agenda`, {}, 90000);
-      if (!r1.ok) throw new Error("Falha");
-      const d1 = await r1.json();
-      await resetarPassadosHoje(d1);
-      await verificarPromocoes();
-      const r2 = await fetchComTimeout(`${API}/agenda`, {}, 90000);
-      if (!r2.ok) throw new Error("Falha");
-      const dadosFinal = await r2.json();
-      dadosGlobais = dadosFinal;
-      salvarAgendaLocal(dadosFinal);
-      renderCalendario();
-      renderTabela(dadosFinal);
-      renderCards(dadosFinal);
-      atualizarStockHeader(dadosFinal);
-    } catch(e) {
-      // Servidor não respondeu: ativa offline (cache já está visível)
-      ativarModoOffline(cache.dados, cache.ts);
-    }
-    return;
-  }
-
-  // ── Sem cache: spinner padrão + timeout generoso para cold start ──
-  loadingEl.style.display = "flex";
+  loadingEl.style.display="flex";
   if (primeiraCargaAgenda) {
     loadingEl.querySelector(".loading-text").textContent =
       "Carregando agenda… (na 1ª vez do dia o servidor pode levar até 1 min)";
   }
-  document.getElementById("table-container").style.display = "none";
-  document.getElementById("cards-view").innerHTML = "";
-  const timeoutMs = primeiraCargaAgenda ? 90000 : 15000;
+  document.getElementById("table-container").style.display="none";
+  document.getElementById("cards-view").innerHTML="";
+  const timeoutMs = primeiraCargaAgenda ? 45000 : 12000;
   try {
     const r1 = await fetchComTimeout(`${API}/agenda`, {}, timeoutMs);
     if (!r1.ok) throw new Error("Falha ao carregar agenda");
@@ -946,7 +825,6 @@ async function carregarAgenda() {
     if (!r2.ok) throw new Error("Falha ao atualizar agenda");
     const dadosFinal = await r2.json();
     dadosGlobais = dadosFinal;
-    salvarAgendaLocal(dadosFinal);
     primeiraCargaAgenda = false;
     loadingEl.querySelector(".loading-text").textContent = "Carregando agenda...";
     renderCalendario();
@@ -954,15 +832,7 @@ async function carregarAgenda() {
     renderCards(dadosFinal);
     atualizarStockHeader(dadosFinal);
   } catch(e) {
-    // Verifica se algum cache apareceu enquanto esperava
-    const cache2 = carregarAgendaLocal();
-    if (cache2 && cache2.dados && cache2.dados.length) {
-      primeiraCargaAgenda = false;
-      loadingEl.style.display = "none";
-      ativarModoOffline(cache2.dados, cache2.ts);
-    } else {
-      document.getElementById("loading").innerHTML = `<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px;text-align:center;padding:12px">⚠️ Erro ao conectar com o servidor.<br><span style="font-size:13px">Aguarde 1 min e toque ↺ para tentar de novo.</span></p>`;
-    }
+    document.getElementById("loading").innerHTML=`<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px;text-align:center;padding:12px">⚠️ Erro ao conectar com o servidor.<br><span style="font-size:13px">Aguarde 1 min e toque ↺ para tentar de novo.</span></p>`;
   }
 }
 
@@ -1314,10 +1184,6 @@ function renderCards(dados) {
 // MODAL RESERVA
 // ════════════════════════════════════════
 function abrirModalDia(coluna,diaNome,dados,linhaPreSel=null) {
-  if (modoOffline) {
-    showToast("📴 Servidor offline — só visualização. Toque ↺ para tentar reconectar.", "error-toast");
-    return;
-  }
   modalDiaColuna=coluna;
   horariosSelecionados=linhaPreSel?[linhaPreSel]:[];
   equipState=resetEquip();
@@ -1641,10 +1507,6 @@ document.getElementById("overlay").addEventListener("click",function(e){if(e.tar
 // MODAL EDITAR / CANCELAR
 // ════════════════════════════════════════
 function abrirModalEditar(coluna, ln) {
-  if (modoOffline) {
-    showToast("📴 Servidor offline — só visualização. Toque ↺ para tentar reconectar.", "error-toast");
-    return;
-  }
   const ld = dadosGlobais[ln-1];
   if (!ld) return;
   const celVal = ld[coluna-1] || "";
@@ -1874,10 +1736,6 @@ function abrirFilaParcial(tipo) {
 }
 
 function abrirModalEspera(coluna,ln,dados,tipoPreSel=null) {
-  if (modoOffline) {
-    showToast("📴 Servidor offline — só visualização. Toque ↺ para tentar reconectar.", "error-toast");
-    return;
-  }
   if (!ln) { showToast("⚠️ Selecione um horário primeiro.","error-toast"); return; }
   esperaColuna=coluna;esperaLinha=ln;esperaEquip=resetEquip();
   const h=HORARIOS[ln]||["?","?"];
