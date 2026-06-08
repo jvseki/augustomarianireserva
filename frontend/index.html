@@ -866,36 +866,68 @@ function slotDispTag(coluna,ln,dados) {
 async function carregarAgenda() {
   const loadingEl = document.getElementById("loading");
 
-  // Modo offline: tenta reconectar em background sem ocultar os dados exibidos
+  // ── Modo offline: reconecta silenciosamente, sem esconder os dados ──
   if (modoOffline) {
     try {
-      const r1 = await fetchComTimeout(`${API}/agenda`, {}, 12000);
+      const r1 = await fetchComTimeout(`${API}/agenda`, {}, 15000);
       if (!r1.ok) throw new Error("Falha");
       const d1 = await r1.json();
       await resetarPassadosHoje(d1);
       await verificarPromocoes();
-      const r2 = await fetchComTimeout(`${API}/agenda`, {}, 12000);
+      const r2 = await fetchComTimeout(`${API}/agenda`, {}, 15000);
       if (!r2.ok) throw new Error("Falha");
       const dadosFinal = await r2.json();
       dadosGlobais = dadosFinal;
       salvarAgendaLocal(dadosFinal);
       desativarModoOffline();
       primeiraCargaAgenda = false;
-      loadingEl.querySelector(".loading-text").textContent = "Carregando agenda...";
-      loadingEl.style.display = "none";
       renderCalendario();
       renderTabela(dadosFinal);
       renderCards(dadosFinal);
       atualizarStockHeader(dadosFinal);
       showToast("✔ Servidor online! Agenda atualizada.", "success");
     } catch(e) {
-      // Ainda offline: só atualiza o texto do banner com novo "há X min"
       const ts = localStorage.getItem(AGENDA_CACHE_TS_KEY);
       atualizarTextoBannerOffline(ts ? parseInt(ts, 10) : null);
     }
     return;
   }
 
+  const cache = carregarAgendaLocal();
+  const temCache = !!(cache && cache.dados && cache.dados.length);
+
+  // ── Tem cache: mostra imediatamente e atualiza em background ──
+  // Evita spinner desnecessário e dá tempo ao servidor acordar (90s)
+  if (temCache && primeiraCargaAgenda) {
+    dadosGlobais = cache.dados;
+    primeiraCargaAgenda = false;
+    renderCalendario();
+    renderTabela(cache.dados);
+    renderCards(cache.dados);
+    atualizarStockHeader(cache.dados);
+    try {
+      const r1 = await fetchComTimeout(`${API}/agenda`, {}, 90000);
+      if (!r1.ok) throw new Error("Falha");
+      const d1 = await r1.json();
+      await resetarPassadosHoje(d1);
+      await verificarPromocoes();
+      const r2 = await fetchComTimeout(`${API}/agenda`, {}, 90000);
+      if (!r2.ok) throw new Error("Falha");
+      const dadosFinal = await r2.json();
+      dadosGlobais = dadosFinal;
+      salvarAgendaLocal(dadosFinal);
+      renderCalendario();
+      renderTabela(dadosFinal);
+      renderCards(dadosFinal);
+      atualizarStockHeader(dadosFinal);
+    } catch(e) {
+      // Servidor não respondeu: ativa offline (cache já está visível)
+      ativarModoOffline(cache.dados, cache.ts);
+    }
+    return;
+  }
+
+  // ── Sem cache: spinner padrão + timeout generoso para cold start ──
   loadingEl.style.display = "flex";
   if (primeiraCargaAgenda) {
     loadingEl.querySelector(".loading-text").textContent =
@@ -903,7 +935,7 @@ async function carregarAgenda() {
   }
   document.getElementById("table-container").style.display = "none";
   document.getElementById("cards-view").innerHTML = "";
-  const timeoutMs = primeiraCargaAgenda ? 45000 : 12000;
+  const timeoutMs = primeiraCargaAgenda ? 90000 : 15000;
   try {
     const r1 = await fetchComTimeout(`${API}/agenda`, {}, timeoutMs);
     if (!r1.ok) throw new Error("Falha ao carregar agenda");
@@ -922,12 +954,12 @@ async function carregarAgenda() {
     renderCards(dadosFinal);
     atualizarStockHeader(dadosFinal);
   } catch(e) {
-    // Tenta mostrar dados do cache local
-    const cache = carregarAgendaLocal();
-    if (cache && cache.dados && cache.dados.length) {
+    // Verifica se algum cache apareceu enquanto esperava
+    const cache2 = carregarAgendaLocal();
+    if (cache2 && cache2.dados && cache2.dados.length) {
       primeiraCargaAgenda = false;
       loadingEl.style.display = "none";
-      ativarModoOffline(cache.dados, cache.ts);
+      ativarModoOffline(cache2.dados, cache2.ts);
     } else {
       document.getElementById("loading").innerHTML = `<p style="color:var(--red);font-family:'Architects Daughter',cursive;font-size:15px;text-align:center;padding:12px">⚠️ Erro ao conectar com o servidor.<br><span style="font-size:13px">Aguarde 1 min e toque ↺ para tentar de novo.</span></p>`;
     }
