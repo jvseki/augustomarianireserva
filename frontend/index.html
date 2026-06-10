@@ -262,7 +262,7 @@
         <div class="cal-wrap" id="mini-cal"></div>
         <div class="user-info" id="user-info"></div>
         <button class="refresh-btn" title="Atualizar agenda" onclick="carregarAgenda()">↺</button>
-        <button class="admin-panel-btn" id="admin-btn" style="display:none" title="Painel do Administrador" onclick="abrirPainelAdmin()">⚙️ Admin</button>
+        <button class="admin-panel-btn" id="admin-btn" style="display:none" title="Painel do Administrador" onclick="abrirPainelAdmin()">⚙️<span class="admin-btn-label"> Admin</span></button>
         <button class="update-app-btn" id="update-app-btn" style="display:none" title="Nova versão disponível" onclick="atualizarApp()">⬆ Atualizar</button>
       </div>
     </div>
@@ -400,13 +400,15 @@
 <!-- PAINEL ADMIN -->
 <div class="overlay overlay-admin" id="overlay-admin">
   <div class="modal modal-admin">
-    <button class="modal-close" onclick="fecharPainelAdmin()">×</button>
-    <div class="modal-header">
-      <span class="modal-emoji">⚙️</span>
-      <div>
-        <h2>Painel do Administrador</h2>
-        <p class="modal-sub">Gerencie qualquer reserva da semana</p>
+    <div class="admin-topbar">
+      <div class="admin-topbar-info">
+        <span class="admin-topbar-emoji">⚙️</span>
+        <div>
+          <h2 class="admin-topbar-title">Painel do Administrador</h2>
+          <p class="admin-topbar-sub">Edite qualquer reserva da semana</p>
+        </div>
       </div>
+      <button class="modal-close admin-topbar-close" onclick="fecharPainelAdmin()">×</button>
     </div>
     <div id="admin-grid-wrap"></div>
   </div>
@@ -2036,6 +2038,68 @@ document.getElementById("overlay-admin").addEventListener("click", function(e) {
   }
 });
 
+function _adminSlotCellHtml(ln, col, val, mobile) {
+  const valUp = val.toUpperCase();
+  const h = HORARIOS[ln] || ["?","?"];
+
+  if (!val || valUp === "LIVRE" || val === "") {
+    if (mobile) return `
+      <div class="admin-slot-row admin-slot-livre">
+        <div class="admin-slot-hora">${h[0]}<br>–<br>${h[1]}</div>
+        <div class="admin-slot-content"><span class="admin-slot-badge">Livre</span></div>
+        <div class="admin-slot-actions">
+          <button class="admin-action-add" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
+          <button class="admin-action-blk" onclick="adminSetCell(${ln},${col},'BLOQUEADO')" title="Bloquear">🔒</button>
+        </div>
+      </div>`;
+    return `<td class="atd atd-slot atd-livre">
+      <div class="admin-slot-actions">
+        <button class="admin-action-add" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
+        <button class="admin-action-blk" onclick="adminSetCell(${ln},${col},'BLOQUEADO')" title="Bloquear">🔒</button>
+      </div>
+    </td>`;
+  }
+
+  if (valUp === "BLOQUEADO") {
+    if (mobile) return `
+      <div class="admin-slot-row admin-slot-bloqueado">
+        <div class="admin-slot-hora">${h[0]}<br>–<br>${h[1]}</div>
+        <div class="admin-slot-content"><span class="admin-slot-badge">🔒 Bloqueado</span></div>
+        <div class="admin-slot-actions">
+          <button class="admin-action-unblk" onclick="adminSetCell(${ln},${col},'')" title="Desbloquear">✕</button>
+        </div>
+      </div>`;
+    return `<td class="atd atd-slot atd-bloqueado">
+      <span class="atd-bloq-ico">🔒</span>
+      <div class="admin-slot-actions">
+        <button class="admin-action-unblk" onclick="adminSetCell(${ln},${col},'')" title="Desbloquear">✕</button>
+      </div>
+    </td>`;
+  }
+
+  const reservas = listarReservas(val);
+  const rsvHtml = reservas.map((r, i) => `
+    <div class="admin-rsv-item">
+      <button class="admin-rsv-nome" onclick="abrirModalAdminEditar(${ln},${col},${i})" title="Editar">${r.nome}</button>
+      <button class="admin-rsv-del" onclick="adminDeletarRsv(${ln},${col},${i})" title="Remover">✕</button>
+    </div>`).join("");
+
+  if (mobile) return `
+    <div class="admin-slot-row admin-slot-ocupado">
+      <div class="admin-slot-hora">${h[0]}<br>–<br>${h[1]}</div>
+      <div class="admin-slot-content">${rsvHtml}</div>
+      <div class="admin-slot-actions">
+        <button class="admin-action-add admin-action-add-extra" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
+      </div>
+    </div>`;
+  return `<td class="atd atd-slot atd-ocupado">
+    ${rsvHtml}
+    <div class="admin-slot-actions" style="margin-top:4px">
+      <button class="admin-action-add admin-action-add-extra" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
+    </div>
+  </td>`;
+}
+
 function renderAdminGrid(dados) {
   const wrap = document.getElementById("admin-grid-wrap");
   if (!dados || dados.length < 2) {
@@ -2043,59 +2107,71 @@ function renderAdminGrid(dados) {
     return;
   }
   const cab = dados[0] || [];
-  const DIAS_ABV = ["","Seg","Ter","Qua","Qui","Sex"];
+  const DIAS_NOMES = ["","Segunda","Terça","Quarta","Quinta","Sexta"];
+  const DIAS_ABV   = ["","Seg","Ter","Qua","Qui","Sex"];
+  const seg = getSegundaDaSemana();
 
-  let headerCells = `<th class="atd atd-hora">Hora</th>`;
-  for (let c = 2; c <= 6; c++) {
-    headerCells += `<th class="atd atd-dia">${cab[c-1] || DIAS_ABV[c] || ""}</th>`;
+  // ── Mobile: day cards ──
+  let cardsHtml = "";
+  for (let col = 2; col <= 6; col++) {
+    const diaNome = cab[col-1] || DIAS_NOMES[col-1] || "";
+    const dt = new Date(seg);
+    dt.setDate(seg.getDate() + (col - 2));
+    const dtStr = `${String(dt.getDate()).padStart(2,"0")}/${String(dt.getMonth()+1).padStart(2,"0")}`;
+    let slotsHtml = "";
+    for (let ln = 2; ln <= 15; ln++) {
+      if (LINHAS_INTERVALO.has(ln)) {
+        slotsHtml += `<div class="admin-slot-row admin-slot-intervalo">☕ Intervalo</div>`;
+        continue;
+      }
+      if (!HORARIOS[ln]) continue;
+      const row = dados[ln - 1] || [];
+      const val = (row[col - 1] || "").trim();
+      slotsHtml += _adminSlotCellHtml(ln, col, val, true);
+    }
+    cardsHtml += `
+      <div class="admin-day-card" data-dia="${col}">
+        <div class="admin-day-card-head">
+          <span class="admin-day-name">${diaNome}</span>
+          <span class="admin-day-date">${dtStr}</span>
+        </div>
+        ${slotsHtml}
+      </div>`;
   }
 
-  let bodyRows = "";
+  // ── Desktop: table ──
+  let thead = `<tr><th class="atd atd-hora">Hora</th>`;
+  for (let c = 2; c <= 6; c++) {
+    const dt = new Date(seg);
+    dt.setDate(seg.getDate() + (c - 2));
+    const dtStr = `${String(dt.getDate()).padStart(2,"0")}/${String(dt.getMonth()+1).padStart(2,"0")}`;
+    thead += `<th class="atd atd-dia">${cab[c-1] || DIAS_ABV[c-1] || ""}<span class="atd-dia-date">${dtStr}</span></th>`;
+  }
+  thead += "</tr>";
+
+  let tbody = "";
   for (let ln = 2; ln <= 15; ln++) {
     if (LINHAS_INTERVALO.has(ln)) {
-      bodyRows += `<tr><td colspan="6" class="atd-intervalo">☕ Intervalo</td></tr>`;
+      tbody += `<tr><td colspan="6" class="atd-intervalo">☕ Intervalo</td></tr>`;
       continue;
     }
     const h = HORARIOS[ln];
     if (!h) continue;
-
-    let cells = `<td class="atd atd-hora">${h[0]}<br><span class="atd-sep">–</span><br>${h[1]}</td>`;
+    let row = `<td class="atd atd-hora">${h[0]}<br><span class="atd-sep">–</span><br>${h[1]}</td>`;
     for (let col = 2; col <= 6; col++) {
-      const row = dados[ln - 1] || [];
-      const val = (row[col - 1] || "").trim();
-      const valUp = val.toUpperCase();
-
-      if (!val || valUp === "LIVRE" || val === "") {
-        cells += `<td class="atd atd-slot atd-livre">
-          <button class="a-add-btn" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar reserva">+</button>
-          <button class="a-blk-btn" onclick="adminSetCell(${ln},${col},'BLOQUEADO')" title="Bloquear">🔒</button>
-        </td>`;
-      } else if (valUp === "BLOQUEADO") {
-        cells += `<td class="atd atd-slot atd-bloqueado">
-          <span class="atd-bloq-ico">🔒</span>
-          <button class="a-del-btn" onclick="adminSetCell(${ln},${col},'')" title="Desbloquear">✕</button>
-        </td>`;
-      } else {
-        const reservas = listarReservas(val);
-        const rHtml = reservas.map((r, i) => `
-          <div class="a-rsv">
-            <button class="a-rsv-edit" onclick="abrirModalAdminEditar(${ln},${col},${i})" title="Editar">${r.nome}</button>
-            <button class="a-rsv-del" onclick="adminDeletarRsv(${ln},${col},${i})" title="Remover">✕</button>
-          </div>`).join("");
-        cells += `<td class="atd atd-slot atd-ocupado">
-          ${rHtml}
-          <button class="a-add-btn a-add-extra" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
-        </td>`;
-      }
+      const dataRow = dados[ln - 1] || [];
+      const val = (dataRow[col - 1] || "").trim();
+      row += _adminSlotCellHtml(ln, col, val, false);
     }
-    bodyRows += `<tr>${cells}</tr>`;
+    tbody += `<tr>${row}</tr>`;
   }
 
   wrap.innerHTML = `
-    <div class="admin-table-scroll">
+    <div class="admin-cards-view">${cardsHtml}</div>
+    <div class="admin-table-wrap">
       <table class="admin-table">
-        <thead><tr>${headerCells}</tr></thead>
-        <tbody>${bodyRows}</tbody>
+        <thead>${thead}</thead>
+        <tbody>${tbody}</tbody>
       </table>
     </div>`;
 }
