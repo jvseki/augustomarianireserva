@@ -2034,7 +2034,9 @@ function fecharPainelAdmin() {
 }
 
 document.getElementById("overlay-admin").addEventListener("click", function(e) {
-  if (e.target === this) fecharPainelAdmin();
+  if (e.target === this && !document.getElementById("overlay-admin-editar").classList.contains("open")) {
+    fecharPainelAdmin();
+  }
 });
 
 function renderAdminGrid(dados) {

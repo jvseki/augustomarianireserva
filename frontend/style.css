@@ -2056,6 +2056,10 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   z-index: 1100;
 }
 
+#overlay-admin-editar {
+  z-index: 1200;
+}
+
 .modal-admin {
   max-width: 820px;
   width: 96vw;
