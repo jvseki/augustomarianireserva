@@ -90,6 +90,7 @@ MARCA_NICK = "JVSEKI"
 ADMIN_EMAILS = {
     "joaovictorsekimantovani@gmail.com",
     "jose.alli@servidor.educacao.sp.gov.br",
+    "alli@prof.educacao.sp.gov.br",
 }
 
 
