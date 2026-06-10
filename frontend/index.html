@@ -66,13 +66,14 @@
     function iniciarAtualizacaoAutomatica(registro) {
       const temWaiting = registro && registro.waiting;
       if (!temWaiting) return;
-      // Só avisa — reload automático no mobile derrubava a sessão após o login
       mostrarBotaoUpdate();
+      aguardandoReloadPorUpdate = true;
+      registro.waiting.postMessage({ type: 'SKIP_WAITING' });
     }
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
-  <script src="https://accounts.google.com/gsi/client" async defer onload="initGoogleSignIn()"></script>
-  <link rel="stylesheet" href="style.css?v=login-mobile-fix">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link rel="stylesheet" href="style.css?v=admin-topbar-fix">
   <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
@@ -179,7 +180,22 @@
         <span class="login-card-desktop-title">Bem-vindo(a) 👋</span>
         <span class="login-card-desktop-sub">Entre com sua conta Gmail institucional<br>para acessar o sistema de agendamento.</span>
 
-        <div id="google-btn-wrap" class="google-btn-wrap"></div>
+        <div id="google-btn-wrap" class="google-btn-wrap">
+          <div id="g_id_onload"
+            data-client_id="576873631654-hetq46i86be7hn0u8i5qmbi9issh31l8.apps.googleusercontent.com"
+            data-callback="handleGoogleLogin"
+            data-auto_prompt="false">
+          </div>
+          <div class="g_id_signin"
+            data-type="standard"
+            data-shape="pill"
+            data-theme="outline"
+            data-text="signin_with"
+            data-size="large"
+            data-locale="pt-BR"
+            data-logo_alignment="left">
+          </div>
+        </div>
         <p class="login-note">Use sua conta Gmail institucional (gov.br)</p>
 
         <!-- Seção instalar como app -->
@@ -472,57 +488,40 @@ const DIAS_NOME = ["","Segunda","Terça","Quarta","Quinta","Sexta"];
 // ESTADO DO USUÁRIO
 // ════════════════════════════════════════
 let usuarioLogado = null; // { nome, email, picture }
-let appJaAberto = false;
-let agendaIntervalId = null;
 const USUARIO_STORAGE_KEY = "usuario";
-const GOOGLE_CLIENT_ID = "576873631654-hetq46i86be7hn0u8i5qmbi9issh31l8.apps.googleusercontent.com";
-
-function normalizarUsuario(u) {
-  if (!u || !u.email) return null;
-  const email = String(u.email).trim().toLowerCase();
-  let nome = (u.nome || u.name || "").trim();
-  if (!nome) nome = email.split("@")[0].replace(/[._]/g, " ");
-  return {
-    nome,
-    email,
-    picture: u.picture || "",
-  };
-}
 
 function salvarUsuarioLocal(u) {
-  const norm = normalizarUsuario(u);
-  if (!norm) return false;
-  const json = JSON.stringify(norm);
   try {
-    localStorage.setItem(USUARIO_STORAGE_KEY, json);
-    sessionStorage.setItem(USUARIO_STORAGE_KEY, json);
-    return localStorage.getItem(USUARIO_STORAGE_KEY) === json;
-  } catch (e) {
-    try {
-      sessionStorage.setItem(USUARIO_STORAGE_KEY, json);
-      return sessionStorage.getItem(USUARIO_STORAGE_KEY) === json;
-    } catch (e2) {
-      return false;
-    }
-  }
+    localStorage.setItem(USUARIO_STORAGE_KEY, JSON.stringify(u));
+  } catch (e) {}
 }
 
 function carregarUsuarioLocal() {
-  const storages = [localStorage, sessionStorage];
-  for (const store of storages) {
-    try {
-      const raw = store.getItem(USUARIO_STORAGE_KEY);
-      if (!raw) continue;
-      const norm = normalizarUsuario(JSON.parse(raw));
-      if (norm) return norm;
-    } catch (e) {}
-  }
+  try {
+    const raw = localStorage.getItem(USUARIO_STORAGE_KEY);
+    if (!raw) return null;
+    const u = JSON.parse(raw);
+    if (u && u.nome && u.email) return u;
+  } catch (e) {}
   return null;
 }
 
 function limparUsuarioLocal() {
-  try { localStorage.removeItem(USUARIO_STORAGE_KEY); } catch (e) {}
-  try { sessionStorage.removeItem(USUARIO_STORAGE_KEY); } catch (e) {}
+  try {
+    localStorage.removeItem(USUARIO_STORAGE_KEY);
+  } catch (e) {}
+}
+
+function handleGoogleLogin(response) {
+  const payload = parseJwt(response.credential);
+  usuarioLogado = {
+    nome:    payload.name,
+    email:   payload.email,
+    picture: payload.picture,
+  };
+  // Mantém login no aparelho (localStorage) até o usuário sair
+  salvarUsuarioLocal(usuarioLogado);
+  entrarNoApp();
 }
 
 function parseJwt(token) {
@@ -531,75 +530,13 @@ function parseJwt(token) {
     '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
 }
 
-function handleGoogleLogin(response) {
-  try {
-    const payload = parseJwt(response.credential);
-    usuarioLogado = normalizarUsuario({
-      nome: payload.name,
-      email: payload.email,
-      picture: payload.picture,
-    });
-    if (!usuarioLogado) return;
-    salvarUsuarioLocal(usuarioLogado);
-    entrarNoApp();
-  } catch (e) {
-    console.warn("Falha no login Google", e);
-    showToast("✗ Não foi possível concluir o login. Tente novamente.", "error-toast");
-  }
-}
-
-function initGoogleSignIn() {
-  if (!window.google || !google.accounts || !google.accounts.id) return;
-  const wrap = document.getElementById("google-btn-wrap");
-  if (!wrap || wrap.dataset.gsiReady === "1") return;
-
-  google.accounts.id.initialize({
-    client_id: GOOGLE_CLIENT_ID,
-    callback: handleGoogleLogin,
-    auto_select: false,
-    itp_support: true,
-  });
-
-  google.accounts.id.renderButton(wrap, {
-    type: "standard",
-    shape: "pill",
-    theme: "outline",
-    text: "signin_with",
-    size: "large",
-    locale: "pt-BR",
-    logo_alignment: "left",
-  });
-
-  wrap.dataset.gsiReady = "1";
-
-  // Após redirect do Google no mobile, a sessão pode já estar salva
-  if (!usuarioLogado) restaurarSessao();
-}
-
-function restaurarSessao() {
-  if (usuarioLogado) return true;
-  const saved = carregarUsuarioLocal();
-  if (!saved) return false;
-  usuarioLogado = saved;
-  entrarNoApp();
-  return true;
-}
-
 function entrarNoApp() {
-  if (!usuarioLogado) return;
-
   document.getElementById("tela-login").style.display = "none";
   document.getElementById("app").style.display        = "block";
   renderUserInfo();
-
-  if (!appJaAberto) {
-    renderCalendario();
-    carregarAgenda();
-    if (agendaIntervalId) clearInterval(agendaIntervalId);
-    agendaIntervalId = setInterval(carregarAgenda, 60000);
-    appJaAberto = true;
-  }
-
+  renderCalendario();
+  carregarAgenda();
+  setInterval(carregarAgenda, 60000);
   const adminBtn = document.getElementById("admin-btn");
   if (adminBtn) adminBtn.style.display = isAdmin() ? "flex" : "none";
 }
@@ -608,7 +545,8 @@ function renderUserInfo() {
   const u = usuarioLogado;
   if (!u) return;
   const el = document.getElementById("user-info");
-  const primeiro = (u.nome || "Usuário").split(" ")[0];
+  // Primeiro nome apenas
+  const primeiro = u.nome.split(" ")[0];
   el.innerHTML = `
     ${u.picture ? `<img class="user-avatar" src="${u.picture}" alt="${primeiro}">` : ""}
     <span class="user-nome">${primeiro}</span>
@@ -619,27 +557,18 @@ function renderUserInfo() {
 function logout() {
   limparUsuarioLocal();
   usuarioLogado = null;
-  appJaAberto = false;
-  if (agendaIntervalId) {
-    clearInterval(agendaIntervalId);
-    agendaIntervalId = null;
-  }
   document.getElementById("app").style.display = "none";
   mostrarTelaLogin();
 }
 
-// Restaura sessão ao carregar (e após voltar do Google no mobile)
+// Verifica login salvo ao carregar
 window.addEventListener("load", () => {
-  if (!restaurarSessao()) {
+  const saved = carregarUsuarioLocal();
+  if (saved) {
+    usuarioLogado = saved;
+    entrarNoApp();
+  } else {
     setTimeout(mostrarBotoesInstalacao, 400);
-  }
-});
-
-// iOS/Safari: ao voltar do login Google ou do cache da página
-window.addEventListener("pageshow", (e) => {
-  if (!usuarioLogado) restaurarSessao();
-  if (e.persisted && window.google && google.accounts && google.accounts.id) {
-    initGoogleSignIn();
   }
 });
 
