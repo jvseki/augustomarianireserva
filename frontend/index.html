@@ -262,6 +262,7 @@
         <div class="cal-wrap" id="mini-cal"></div>
         <div class="user-info" id="user-info"></div>
         <button class="refresh-btn" title="Atualizar agenda" onclick="carregarAgenda()">↺</button>
+        <button class="admin-panel-btn" id="admin-btn" style="display:none" title="Painel do Administrador" onclick="abrirPainelAdmin()">⚙️ Admin</button>
         <button class="update-app-btn" id="update-app-btn" style="display:none" title="Nova versão disponível" onclick="atualizarApp()">⬆ Atualizar</button>
       </div>
     </div>
@@ -396,6 +397,51 @@
   </div>
 </div>
 
+<!-- PAINEL ADMIN -->
+<div class="overlay overlay-admin" id="overlay-admin">
+  <div class="modal modal-admin">
+    <button class="modal-close" onclick="fecharPainelAdmin()">×</button>
+    <div class="modal-header">
+      <span class="modal-emoji">⚙️</span>
+      <div>
+        <h2>Painel do Administrador</h2>
+        <p class="modal-sub">Gerencie qualquer reserva da semana</p>
+      </div>
+    </div>
+    <div id="admin-grid-wrap"></div>
+  </div>
+</div>
+
+<!-- ADMIN — EDITAR CÉLULA -->
+<div class="overlay" id="overlay-admin-editar">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModalAdminEditar()">×</button>
+    <div class="modal-header">
+      <span class="modal-emoji">✏️</span>
+      <div>
+        <h2 id="admin-editar-title">Editar Horário</h2>
+        <p class="modal-sub" id="admin-editar-sub"></p>
+      </div>
+    </div>
+    <div class="input-group">
+      <label>👤 Nome do professor(a)</label>
+      <input type="text" id="admin-nome-input" placeholder="Nome completo..."
+        autocomplete="off" autocorrect="off" autocapitalize="words">
+    </div>
+    <div class="input-group">
+      <label>📧 E-mail (opcional)</label>
+      <input type="email" id="admin-email-input" placeholder="email@escola.gov.br" autocomplete="off">
+    </div>
+    <div class="sec-label">🎒 Equipamentos</div>
+    <div class="equip-rows" id="admin-equip-rows"></div>
+    <p class="error-msg" id="admin-editar-error"></p>
+    <div class="editar-actions">
+      <button class="btn-danger" id="admin-apagar-btn" onclick="apagarAdminCell()" style="display:none">🗑 Apagar Reserva</button>
+      <button class="btn-primary" id="admin-salvar-btn" onclick="salvarAdminCell()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -489,6 +535,8 @@ function entrarNoApp() {
   renderCalendario();
   carregarAgenda();
   setInterval(carregarAgenda, 60000);
+  const adminBtn = document.getElementById("admin-btn");
+  if (adminBtn) adminBtn.style.display = isAdmin() ? "flex" : "none";
 }
 
 function renderUserInfo() {
@@ -1944,6 +1992,330 @@ window.addEventListener("appinstalled", () => {
 function mostrarTelaLogin() {
   document.getElementById("tela-login").style.display = "flex";
   setTimeout(mostrarBotoesInstalacao, 300);
+}
+
+// ════════════════════════════════════════
+// PAINEL DO ADMINISTRADOR
+// ════════════════════════════════════════
+const ADMIN_EMAILS = [
+  "joaovictorsekimantovani@gmail.com",
+  "jose.alli@servidor.educacao.sp.gov.br",
+];
+
+function isAdmin() {
+  return ADMIN_EMAILS.includes(getEmailUsuarioLogado());
+}
+
+// Estado do painel admin
+let adminEditLinha = null;
+let adminEditColuna = null;
+let adminEditReservaIdx = null; // -1 = nova reserva, >= 0 = editar existente
+let adminEditEquipState = resetEquip();
+
+async function adminChamarEditar(linha, coluna, valor) {
+  return fetchComTimeout(`${API}/admin/editar`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Admin-Email": getEmailUsuarioLogado(),
+    },
+    body: JSON.stringify({ linha, coluna, valor }),
+  }, 12000);
+}
+
+function abrirPainelAdmin() {
+  if (!isAdmin()) return;
+  renderAdminGrid(dadosGlobais);
+  document.getElementById("overlay-admin").classList.add("open");
+}
+
+function fecharPainelAdmin() {
+  document.getElementById("overlay-admin").classList.remove("open");
+}
+
+document.getElementById("overlay-admin").addEventListener("click", function(e) {
+  if (e.target === this) fecharPainelAdmin();
+});
+
+function renderAdminGrid(dados) {
+  const wrap = document.getElementById("admin-grid-wrap");
+  if (!dados || dados.length < 2) {
+    wrap.innerHTML = `<p class="admin-empty">Carregue a agenda primeiro (↺).</p>`;
+    return;
+  }
+  const cab = dados[0] || [];
+  const DIAS_ABV = ["","Seg","Ter","Qua","Qui","Sex"];
+
+  let headerCells = `<th class="atd atd-hora">Hora</th>`;
+  for (let c = 2; c <= 6; c++) {
+    headerCells += `<th class="atd atd-dia">${cab[c-1] || DIAS_ABV[c] || ""}</th>`;
+  }
+
+  let bodyRows = "";
+  for (let ln = 2; ln <= 15; ln++) {
+    if (LINHAS_INTERVALO.has(ln)) {
+      bodyRows += `<tr><td colspan="6" class="atd-intervalo">☕ Intervalo</td></tr>`;
+      continue;
+    }
+    const h = HORARIOS[ln];
+    if (!h) continue;
+
+    let cells = `<td class="atd atd-hora">${h[0]}<br><span class="atd-sep">–</span><br>${h[1]}</td>`;
+    for (let col = 2; col <= 6; col++) {
+      const row = dados[ln - 1] || [];
+      const val = (row[col - 1] || "").trim();
+      const valUp = val.toUpperCase();
+
+      if (!val || valUp === "LIVRE" || val === "") {
+        cells += `<td class="atd atd-slot atd-livre">
+          <button class="a-add-btn" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar reserva">+</button>
+          <button class="a-blk-btn" onclick="adminSetCell(${ln},${col},'BLOQUEADO')" title="Bloquear">🔒</button>
+        </td>`;
+      } else if (valUp === "BLOQUEADO") {
+        cells += `<td class="atd atd-slot atd-bloqueado">
+          <span class="atd-bloq-ico">🔒</span>
+          <button class="a-del-btn" onclick="adminSetCell(${ln},${col},'')" title="Desbloquear">✕</button>
+        </td>`;
+      } else {
+        const reservas = listarReservas(val);
+        const rHtml = reservas.map((r, i) => `
+          <div class="a-rsv">
+            <button class="a-rsv-edit" onclick="abrirModalAdminEditar(${ln},${col},${i})" title="Editar">${r.nome}</button>
+            <button class="a-rsv-del" onclick="adminDeletarRsv(${ln},${col},${i})" title="Remover">✕</button>
+          </div>`).join("");
+        cells += `<td class="atd atd-slot atd-ocupado">
+          ${rHtml}
+          <button class="a-add-btn a-add-extra" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
+        </td>`;
+      }
+    }
+    bodyRows += `<tr>${cells}</tr>`;
+  }
+
+  wrap.innerHTML = `
+    <div class="admin-table-scroll">
+      <table class="admin-table">
+        <thead><tr>${headerCells}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>`;
+}
+
+function abrirModalAdminEditar(ln, col, reservaIdx) {
+  if (!isAdmin()) return;
+  adminEditLinha = ln;
+  adminEditColuna = col;
+  adminEditReservaIdx = reservaIdx;
+  adminEditEquipState = resetEquip();
+
+  const row = dadosGlobais[ln - 1] || [];
+  const val = (row[col - 1] || "").trim();
+  const h = HORARIOS[ln] || ["?","?"];
+  const cab = dadosGlobais[0] || [];
+  const DIAS_ABV = ["","Seg","Ter","Qua","Qui","Sex"];
+  const dia = cab[col-1] || DIAS_ABV[col-1] || "";
+
+  document.getElementById("admin-editar-error").textContent = "";
+  const nomeInput = document.getElementById("admin-nome-input");
+  const emailInput = document.getElementById("admin-email-input");
+  const apagarBtn = document.getElementById("admin-apagar-btn");
+
+  if (reservaIdx >= 0) {
+    const reservas = listarReservas(val);
+    const rsv = reservas[reservaIdx];
+    if (rsv) {
+      nomeInput.value = rsv.nome || "";
+      emailInput.value = rsv.email || "";
+      const reEquip = /(\d+)\s*(tv remota|notebook prata|notebook preto|tablet)/gi;
+      let m;
+      while ((m = reEquip.exec(rsv.equip || "")) !== null) {
+        const n = m[2].toLowerCase();
+        let key = null;
+        if (n === "tablet") key = "tablet";
+        else if (n === "notebook prata") key = "prata";
+        else if (n === "notebook preto") key = "preto";
+        else if (n === "tv remota") key = "tvremota";
+        if (key) {
+          adminEditEquipState[key].ativo = true;
+          adminEditEquipState[key].qtd = parseInt(m[1], 10);
+        }
+      }
+    }
+    document.getElementById("admin-editar-title").textContent = `Editar · ${dia} ${h[0]}–${h[1]}`;
+    apagarBtn.style.display = "block";
+  } else {
+    nomeInput.value = "";
+    emailInput.value = "";
+    document.getElementById("admin-editar-title").textContent = `Adicionar · ${dia} ${h[0]}–${h[1]}`;
+    apagarBtn.style.display = "none";
+  }
+
+  renderAdminEquipRows();
+  document.getElementById("overlay-admin-editar").classList.add("open");
+}
+
+function fecharModalAdminEditar() {
+  document.getElementById("overlay-admin-editar").classList.remove("open");
+}
+
+document.getElementById("overlay-admin-editar").addEventListener("click", function(e) {
+  if (e.target === this) fecharModalAdminEditar();
+});
+
+function renderAdminEquipRows() {
+  const c = document.getElementById("admin-equip-rows");
+  c.innerHTML = "";
+  Object.keys(ESTOQUE).forEach(tipo => {
+    const { emoji, nome } = ESTOQUE[tipo];
+    const ativo = adminEditEquipState[tipo].ativo;
+    const qtd = adminEditEquipState[tipo].qtd;
+    const row = document.createElement("div");
+    row.className = `equip-row ${tipo}${ativo ? " ativo" : ""}`;
+    row.id = `admin-equip-row-${tipo}`;
+    row.innerHTML = `
+      <div class="equip-row-check" id="admin-check-${tipo}">${ativo ? "✔" : ""}</div>
+      <span class="equip-row-emoji">${emoji}</span>
+      <div class="equip-row-info">
+        <div class="equip-row-name">${nome}</div>
+      </div>
+      <div class="equip-row-qty" id="admin-qty-wrap-${tipo}" style="display:${ativo ? "flex" : "none"}">
+        <button class="qty-btn" onclick="event.stopPropagation();mudaAdminQtd('${tipo}',-1)">−</button>
+        <span class="qty-num" id="admin-qty-num-${tipo}">${qtd}</span>
+        <button class="qty-btn" onclick="event.stopPropagation();mudaAdminQtd('${tipo}',+1)">+</button>
+      </div>`;
+    row.onclick = () => toggleAdminEquip(tipo);
+    c.appendChild(row);
+  });
+}
+
+function toggleAdminEquip(tipo) {
+  adminEditEquipState[tipo].ativo = !adminEditEquipState[tipo].ativo;
+  const row = document.getElementById(`admin-equip-row-${tipo}`);
+  const check = document.getElementById(`admin-check-${tipo}`);
+  const qw = document.getElementById(`admin-qty-wrap-${tipo}`);
+  if (adminEditEquipState[tipo].ativo) {
+    row.classList.add("ativo");
+    check.textContent = "✔";
+    qw.style.display = "flex";
+  } else {
+    row.classList.remove("ativo");
+    check.textContent = "";
+    qw.style.display = "none";
+  }
+}
+
+function mudaAdminQtd(tipo, delta) {
+  const max = ESTOQUE[tipo].total;
+  adminEditEquipState[tipo].qtd = Math.max(1, Math.min(max, adminEditEquipState[tipo].qtd + delta));
+  document.getElementById(`admin-qty-num-${tipo}`).textContent = adminEditEquipState[tipo].qtd;
+}
+
+async function salvarAdminCell() {
+  const nome = document.getElementById("admin-nome-input").value.trim();
+  const email = document.getElementById("admin-email-input").value.trim().toLowerCase();
+  const err = document.getElementById("admin-editar-error");
+  err.textContent = "";
+
+  if (!nome) { err.textContent = "✏️ Digite o nome do professor."; return; }
+  const sel = Object.keys(adminEditEquipState).filter(t => adminEditEquipState[t].ativo);
+  if (!sel.length) { err.textContent = "🎒 Selecione ao menos um equipamento."; return; }
+
+  const equipStr = sel.map(t => `${adminEditEquipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
+  const tag = email && email.includes("@") ? ` [${email}]` : "";
+  const novaReserva = `${nome}${tag} | ${equipStr}`;
+
+  const row = dadosGlobais[adminEditLinha - 1] || [];
+  const valAtual = (row[adminEditColuna - 1] || "").trim();
+  let valorFinal;
+  if (adminEditReservaIdx >= 0) {
+    const blocos = valAtual.split(" § ");
+    if (adminEditReservaIdx < blocos.length) {
+      blocos[adminEditReservaIdx] = novaReserva;
+    } else {
+      blocos.push(novaReserva);
+    }
+    valorFinal = blocos.join(" § ").trim();
+  } else {
+    const vUp = valAtual.toUpperCase();
+    valorFinal = (!valAtual || vUp === "" || vUp === "LIVRE" || vUp === "BLOQUEADO")
+      ? novaReserva
+      : `${valAtual} § ${novaReserva}`;
+  }
+
+  const btn = document.getElementById("admin-salvar-btn");
+  btn.textContent = "Salvando..."; btn.disabled = true;
+  try {
+    const res = await adminChamarEditar(adminEditLinha, adminEditColuna, valorFinal);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.erro || "Erro ao salvar");
+    }
+    if (dadosGlobais[adminEditLinha - 1]) dadosGlobais[adminEditLinha - 1][adminEditColuna - 1] = valorFinal;
+    fecharModalAdminEditar();
+    renderAdminGrid(dadosGlobais);
+    showToast("✅ Reserva salva!", "success");
+    carregarAgenda();
+  } catch (e) {
+    err.textContent = `✗ ${e.message || "Erro ao salvar"}`;
+  }
+  btn.textContent = "💾 Salvar"; btn.disabled = false;
+}
+
+async function apagarAdminCell() {
+  if (adminEditReservaIdx < 0) return;
+  const row = dadosGlobais[adminEditLinha - 1] || [];
+  const valAtual = (row[adminEditColuna - 1] || "").trim();
+  const blocos = valAtual.split(" § ");
+  blocos.splice(adminEditReservaIdx, 1);
+  const valorFinal = blocos.join(" § ").trim();
+
+  const btn = document.getElementById("admin-apagar-btn");
+  btn.textContent = "Apagando..."; btn.disabled = true;
+  try {
+    const res = await adminChamarEditar(adminEditLinha, adminEditColuna, valorFinal);
+    if (!res.ok) throw new Error("Erro ao apagar");
+    if (dadosGlobais[adminEditLinha - 1]) dadosGlobais[adminEditLinha - 1][adminEditColuna - 1] = valorFinal;
+    fecharModalAdminEditar();
+    renderAdminGrid(dadosGlobais);
+    showToast("🗑 Reserva removida.", "success");
+    carregarAgenda();
+  } catch (e) {
+    document.getElementById("admin-editar-error").textContent = "✗ Erro ao apagar";
+  }
+  btn.textContent = "🗑 Apagar Reserva"; btn.disabled = false;
+}
+
+async function adminDeletarRsv(ln, col, reservaIdx) {
+  if (!confirm("Remover esta reserva?")) return;
+  const row = dadosGlobais[ln - 1] || [];
+  const valAtual = (row[col - 1] || "").trim();
+  const blocos = valAtual.split(" § ");
+  blocos.splice(reservaIdx, 1);
+  const valorFinal = blocos.join(" § ").trim();
+  try {
+    const res = await adminChamarEditar(ln, col, valorFinal);
+    if (!res.ok) throw new Error();
+    if (dadosGlobais[ln - 1]) dadosGlobais[ln - 1][col - 1] = valorFinal;
+    renderAdminGrid(dadosGlobais);
+    showToast("🗑 Reserva removida.", "success");
+    carregarAgenda();
+  } catch (e) {
+    showToast("✗ Erro ao remover reserva.", "error-toast");
+  }
+}
+
+async function adminSetCell(ln, col, valor) {
+  try {
+    const res = await adminChamarEditar(ln, col, valor);
+    if (!res.ok) throw new Error();
+    if (dadosGlobais[ln - 1]) dadosGlobais[ln - 1][col - 1] = valor;
+    renderAdminGrid(dadosGlobais);
+    const msg = valor === "BLOQUEADO" ? "🔒 Horário bloqueado." : "✅ Horário liberado.";
+    showToast(msg, "success");
+    carregarAgenda();
+  } catch (e) {
+    showToast("✗ Erro ao atualizar horário.", "error-toast");
+  }
 }
 </script>
 </body>

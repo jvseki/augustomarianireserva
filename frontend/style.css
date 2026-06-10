@@ -2028,3 +2028,222 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
     background: linear-gradient(90deg, transparent, rgba(200, 232, 204, 0.2), transparent);
   }
 }
+
+/* ══════════════════════════════════════
+   PAINEL DO ADMINISTRADOR
+══════════════════════════════════════ */
+.admin-panel-btn {
+  background: #7c2d12;
+  color: #fef3c7;
+  border: none;
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #3b0f04;
+  transition: all .15s;
+  white-space: nowrap;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.admin-panel-btn:active { transform: scale(.96); box-shadow: 1px 1px 0 #3b0f04; }
+
+.overlay-admin {
+  z-index: 1100;
+}
+
+.modal-admin {
+  max-width: 820px;
+  width: 96vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-admin #admin-grid-wrap {
+  overflow-y: auto;
+  flex: 1;
+  margin-top: 8px;
+}
+
+.admin-empty {
+  color: var(--ink3);
+  padding: 24px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.admin-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 540px;
+  font-size: 12px;
+}
+
+.admin-table thead tr {
+  background: var(--hdr);
+  color: var(--hdr-text);
+}
+
+.atd {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.atd-hora {
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  white-space: nowrap;
+  background: var(--gray-bg);
+  color: var(--ink2);
+  min-width: 52px;
+}
+
+.admin-table thead .atd-hora {
+  background: var(--hdr);
+  color: var(--hdr-text);
+}
+
+.atd-sep { font-size: 10px; color: var(--ink3); }
+
+.atd-dia {
+  text-align: center;
+  font-weight: 700;
+  font-size: 12px;
+  min-width: 90px;
+}
+
+.atd-intervalo {
+  text-align: center;
+  background: var(--orange-bg);
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px;
+}
+
+.atd-slot {
+  min-width: 90px;
+  vertical-align: top;
+}
+
+.atd-livre {
+  background: var(--green-bg);
+}
+
+.atd-bloqueado {
+  background: #f1f0ee;
+  text-align: center;
+}
+
+.atd-bloq-ico {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+
+.atd-ocupado {
+  background: var(--blue-bg);
+}
+
+.a-add-btn {
+  display: block;
+  width: 100%;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-bottom: 3px;
+  transition: opacity .15s;
+}
+.a-add-btn:active { opacity: .7; }
+
+.a-add-extra {
+  background: var(--blue);
+  margin-top: 4px;
+}
+
+.a-blk-btn {
+  display: block;
+  width: 100%;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--ink3);
+  transition: background .15s;
+}
+.a-blk-btn:hover { background: var(--gray-bg); }
+
+.a-del-btn {
+  display: block;
+  width: 100%;
+  background: var(--red-bg);
+  color: var(--red);
+  border: 1px solid var(--red-bd);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.a-del-btn:active { opacity: .7; }
+
+.a-rsv {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.a-rsv-edit {
+  flex: 1;
+  text-align: left;
+  background: var(--blue-bg);
+  border: 1px solid var(--blue-bd);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--blue);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100px;
+  transition: background .15s;
+}
+.a-rsv-edit:hover { background: #cfddf5; }
+
+.a-rsv-del {
+  background: none;
+  border: 1px solid var(--red-bd);
+  color: var(--red);
+  border-radius: 5px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s;
+}
+.a-rsv-del:hover { background: var(--red-bg); }

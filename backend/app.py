@@ -87,6 +87,11 @@ MARCA_AGUA_CHAVE = "marca_agua_jvseki_v1"
 MARCA_AUTOR = "João Victor Seki Mantovani"
 MARCA_NICK = "JVSEKI"
 
+ADMIN_EMAILS = {
+    "joaovictorsekimantovani@gmail.com",
+    "jose.alli@servidor.educacao.sp.gov.br",
+}
+
 
 def garantir_marca_agua_planilha():
     """
@@ -237,6 +242,21 @@ def agenda():
 def editar():
     data = request.json
     update_cell(data["linha"], data["coluna"], data["valor"])
+    return jsonify({"status": "ok"})
+
+
+@app.route("/admin/editar", methods=["POST"])
+def admin_editar():
+    email = (request.headers.get("X-Admin-Email") or "").strip().lower()
+    if email not in ADMIN_EMAILS:
+        return jsonify({"erro": "Acesso negado"}), 403
+    data = request.json or {}
+    linha = data.get("linha")
+    coluna = data.get("coluna")
+    valor = data.get("valor", "")
+    if linha is None or coluna is None:
+        return jsonify({"erro": "Parâmetros inválidos"}), 400
+    update_cell(int(linha), int(coluna), str(valor))
     return jsonify({"status": "ok"})
 
 
