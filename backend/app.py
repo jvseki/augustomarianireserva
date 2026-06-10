@@ -247,10 +247,10 @@ def editar():
 
 @app.route("/admin/editar", methods=["POST"])
 def admin_editar():
-    email = (request.headers.get("X-Admin-Email") or "").strip().lower()
+    data = request.json or {}
+    email = (data.get("admin_email") or "").strip().lower()
     if email not in ADMIN_EMAILS:
         return jsonify({"erro": "Acesso negado"}), 403
-    data = request.json or {}
     linha = data.get("linha")
     coluna = data.get("coluna")
     valor = data.get("valor", "")

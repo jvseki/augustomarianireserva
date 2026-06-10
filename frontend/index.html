@@ -2015,11 +2015,8 @@ let adminEditEquipState = resetEquip();
 async function adminChamarEditar(linha, coluna, valor) {
   return fetchComTimeout(`${API}/admin/editar`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Admin-Email": getEmailUsuarioLogado(),
-    },
-    body: JSON.stringify({ linha, coluna, valor }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ admin_email: getEmailUsuarioLogado(), linha, coluna, valor }),
   }, 12000);
 }
 
