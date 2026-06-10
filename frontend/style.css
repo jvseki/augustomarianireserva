@@ -2096,7 +2096,11 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 18px;
+  padding:
+    calc(14px + var(--safe-top))
+    calc(18px + var(--safe-right))
+    14px
+    calc(18px + var(--safe-left));
   background: var(--hdr);
   flex-shrink: 0;
   border-bottom: 2px solid rgba(255,255,255,.06);
@@ -2128,11 +2132,31 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 }
 
 .admin-topbar-close {
+  position: static;
+  top: auto;
+  right: auto;
   background: rgba(255,255,255,.1) !important;
   color: var(--hdr-text) !important;
   flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 22px;
+  border: 1.5px solid rgba(255,255,255,.18);
 }
 .admin-topbar-close:hover { background: rgba(255,255,255,.2) !important; }
+
+@media (max-width: 699px) {
+  .overlay-admin { align-items: stretch; }
+  .admin-topbar {
+    padding-top: calc(10px + var(--safe-top));
+    padding-bottom: 12px;
+    align-items: center;
+  }
+  .admin-topbar-info { min-width: 0; flex: 1; }
+  .admin-topbar-title { font-size: 15px; line-height: 1.2; }
+}
 
 /* ── Grid wrapper (área scrollável) ── */
 .modal-admin #admin-grid-wrap {
