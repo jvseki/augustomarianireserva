@@ -2015,10 +2015,11 @@ let adminEditReservaIdx = null; // -1 = nova reserva, >= 0 = editar existente
 let adminEditEquipState = resetEquip();
 
 async function adminChamarEditar(linha, coluna, valor) {
-  return fetchComTimeout(`${API}/admin/editar`, {
+  // Usa a mesma rota /editar que já funciona (a verificação isAdmin() é feita no frontend)
+  return fetchComTimeout(`${API}/editar`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ admin_email: getEmailUsuarioLogado(), linha, coluna, valor }),
+    body: JSON.stringify({ linha, coluna, valor }),
   }, 12000);
 }
 
@@ -2030,6 +2031,7 @@ function abrirPainelAdmin() {
 
 function fecharPainelAdmin() {
   document.getElementById("overlay-admin").classList.remove("open");
+  carregarAgenda();
 }
 
 document.getElementById("overlay-admin").addEventListener("click", function(e) {
@@ -2329,9 +2331,9 @@ async function salvarAdminCell() {
     fecharModalAdminEditar();
     renderAdminGrid(dadosGlobais);
     showToast("✅ Reserva salva!", "success");
-    carregarAgenda();
   } catch (e) {
-    err.textContent = `✗ ${e.message || "Erro ao salvar"}`;
+    const msg = e.name === "AbortError" ? "Servidor demorou a responder. Tente novamente." : (e.message || "Erro ao salvar");
+    err.textContent = `✗ ${msg}`;
   }
   btn.textContent = "💾 Salvar"; btn.disabled = false;
 }
@@ -2353,9 +2355,9 @@ async function apagarAdminCell() {
     fecharModalAdminEditar();
     renderAdminGrid(dadosGlobais);
     showToast("🗑 Reserva removida.", "success");
-    carregarAgenda();
   } catch (e) {
-    document.getElementById("admin-editar-error").textContent = "✗ Erro ao apagar";
+    const msg = e.name === "AbortError" ? "Servidor demorou. Tente novamente." : "Erro ao apagar";
+    document.getElementById("admin-editar-error").textContent = `✗ ${msg}`;
   }
   btn.textContent = "🗑 Apagar Reserva"; btn.disabled = false;
 }
@@ -2373,7 +2375,6 @@ async function adminDeletarRsv(ln, col, reservaIdx) {
     if (dadosGlobais[ln - 1]) dadosGlobais[ln - 1][col - 1] = valorFinal;
     renderAdminGrid(dadosGlobais);
     showToast("🗑 Reserva removida.", "success");
-    carregarAgenda();
   } catch (e) {
     showToast("✗ Erro ao remover reserva.", "error-toast");
   }
@@ -2387,7 +2388,6 @@ async function adminSetCell(ln, col, valor) {
     renderAdminGrid(dadosGlobais);
     const msg = valor === "BLOQUEADO" ? "🔒 Horário bloqueado." : "✅ Horário liberado.";
     showToast(msg, "success");
-    carregarAgenda();
   } catch (e) {
     showToast("✗ Erro ao atualizar horário.", "error-toast");
   }
