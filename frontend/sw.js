@@ -4,7 +4,7 @@
 //      (sempre pega versão mais recente do Vercel)
 // ══════════════════════════════════════
 
-const CACHE_NAME = "notebooks-v18";
+const CACHE_NAME = "notebooks-v19";
 
 // Só cacheia assets que mudam raramente (fontes, css, ícones)
 // index.html é EXCLUÍDO propositalmente
