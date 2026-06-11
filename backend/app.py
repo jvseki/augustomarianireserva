@@ -221,6 +221,20 @@ def home():
     return jsonify({"status": "API rodando 🚀"})
 
 
+@app.route("/health", methods=["GET"])
+def health():
+    """Health check leve — não toca no Google Sheets.
+    Com ?sheets=1 faz leitura mínima da planilha (para diagnóstico).
+    """
+    if request.args.get("sheets") == "1":
+        try:
+            sheet.cell(1, 1).value
+            return jsonify({"ok": True, "sheets": "ok"})
+        except Exception as e:
+            return jsonify({"ok": False, "sheets": str(e)}), 503
+    return jsonify({"ok": True})
+
+
 @app.route("/agenda", methods=["GET"])
 def agenda():
     try:
