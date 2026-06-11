@@ -2341,8 +2341,9 @@ function renderAdminEquipRows() {
     if (ativo && adminEditEquipState[tipo].qtd > d) adminEditEquipState[tipo].qtd = d;
     const qtd = adminEditEquipState[tipo].qtd;
 
+    const maxFila = ESTOQUE[tipo].total;
     const dispLabel = esgotado
-      ? "esgotado neste horário"
+      ? `esgotado neste horário · máx. ${maxFila} na fila`
       : `${d} disponíve${d === 1 ? "l" : "is"}`;
 
     const row = document.createElement("div");
@@ -2350,7 +2351,14 @@ function renderAdminEquipRows() {
     row.id = `admin-equip-row-${tipo}`;
 
     const filaBtn = esgotado
-      ? `<button class="fila-equip-btn" onclick="event.stopPropagation();adminFilaEquip('${tipo}')">⏳ fila de espera</button>`
+      ? `<div class="admin-fila-actions">
+        <div class="equip-row-qty" id="admin-fila-qty-wrap-${tipo}">
+          <button class="qty-btn" onclick="event.stopPropagation();mudaAdminFilaQtd('${tipo}',-1)"${qtd <= 1 ? " disabled" : ""}>−</button>
+          <span class="qty-num" id="admin-fila-qty-num-${tipo}">${qtd}</span>
+          <button class="qty-btn" onclick="event.stopPropagation();mudaAdminFilaQtd('${tipo}',+1)"${qtd >= maxFila ? " disabled" : ""}>+</button>
+        </div>
+        <button class="fila-equip-btn" onclick="event.stopPropagation();adminFilaEquip('${tipo}')">⏳ fila de espera</button>
+      </div>`
       : `<div class="equip-row-qty" id="admin-qty-wrap-${tipo}" style="display:${ativo ? "flex" : "none"}">
         <button class="qty-btn" onclick="event.stopPropagation();mudaAdminQtd('${tipo}',-1)">−</button>
         <span class="qty-num" id="admin-qty-num-${tipo}">${qtd}</span>
@@ -2393,6 +2401,19 @@ function mudaAdminQtd(tipo, delta) {
   document.getElementById(`admin-qty-num-${tipo}`).textContent = adminEditEquipState[tipo].qtd;
 }
 
+function mudaAdminFilaQtd(tipo, delta) {
+  const max = ESTOQUE[tipo].total;
+  adminEditEquipState[tipo].qtd = Math.max(1, Math.min(max, adminEditEquipState[tipo].qtd + delta));
+  const numEl = document.getElementById(`admin-fila-qty-num-${tipo}`);
+  if (numEl) numEl.textContent = adminEditEquipState[tipo].qtd;
+  const row = document.getElementById(`admin-equip-row-${tipo}`);
+  if (row) {
+    const btns = row.querySelectorAll(".admin-fila-actions .qty-btn");
+    if (btns[0]) btns[0].disabled = adminEditEquipState[tipo].qtd <= 1;
+    if (btns[1]) btns[1].disabled = adminEditEquipState[tipo].qtd >= max;
+  }
+}
+
 async function adminFilaEquip(tipo) {
   const nome = document.getElementById("admin-nome-input").value.trim();
   const email = document.getElementById("admin-email-input").value.trim().toLowerCase();
@@ -2414,7 +2435,7 @@ async function adminFilaEquip(tipo) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.erro || "Erro ao adicionar na fila");
     fecharModalAdminEditar();
-    showToast(`${nome} entrou na lista de espera (${ESTOQUE[tipo].nome}).`, "success");
+    showToast(`${nome} entrou na lista de espera (${qtd} ${ESTOQUE[tipo].nome}).`, "success");
   } catch (e) {
     const msg = e.name === "AbortError" ? "Servidor demorou. Tente novamente." : (e.message || "Erro ao adicionar na fila");
     setAdminAlert(err, msg);

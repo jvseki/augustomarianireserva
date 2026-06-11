@@ -1222,6 +1222,15 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
   pointer-events: all; /* só o botão de fila é clicável */
 }
 
+/* Admin: quantidade + fila de espera em equipamento esgotado */
+#admin-equip-rows .equip-row.sem-estoque .admin-fila-actions {
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 /* ── Badges de equipamentos nas células ── */
 .cell-reserva { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 2px; margin-bottom: 2px; }
 .cell-reserva:last-child { margin-bottom: 0; }
