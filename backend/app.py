@@ -2,6 +2,7 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sheets import get_all_data, update_cell, client, sheet
 from datetime import datetime, timedelta
+import gspread
 import re
 
 app = Flask(__name__)
@@ -156,18 +157,27 @@ def agenda_tem_reservas(valores):
 
 
 def limpar_celulas_agenda():
-    """Limpa agendamentos B2:F15 (preserva intervalos e BLOQUEADO manual)."""
+    """Limpa agendamentos B2:F15 preservando BLOQUEADO e linhas de intervalo.
+    Usa batch_update: 1 chamada à API em vez de até 60 chamadas individuais.
+    """
+    valores = sheet.get_all_values()
+    atualizacoes = []
     for ln in range(2, 16):
         if ln in LINHAS_INTERVALO:
             continue
         for col in range(2, 7):
             try:
-                v = (sheet.cell(ln, col).value or "").strip().upper()
-                if v == "BLOQUEADO":
+                v = (valores[ln - 1][col - 1] if len(valores) >= ln and len(valores[ln - 1]) >= col else "")
+                if (v or "").strip().upper() == "BLOQUEADO":
                     continue
-            except Exception:
+            except (IndexError, Exception):
                 pass
-            update_cell(ln, col, "")
+            atualizacoes.append({
+                "range": gspread.utils.rowcol_to_a1(ln, col),
+                "values": [[""]],
+            })
+    if atualizacoes:
+        sheet.batch_update(atualizacoes)
 
 
 def tentar_limpeza_semana():
