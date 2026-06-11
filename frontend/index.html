@@ -73,7 +73,7 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="stylesheet" href="style.css?v=admin-topbar-fix">
+  <link rel="stylesheet" href="style.css?v=admin-alerts-fix">
   <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
@@ -436,10 +436,22 @@
     </div>
     <div class="sec-label">🎒 Equipamentos</div>
     <div class="equip-rows" id="admin-equip-rows"></div>
-    <p class="error-msg" id="admin-editar-error"></p>
+    <div class="admin-alert" id="admin-editar-error" role="alert" style="display:none"></div>
     <div class="editar-actions">
       <button class="btn-danger" id="admin-apagar-btn" onclick="apagarAdminCell()" style="display:none">🗑 Apagar Reserva</button>
       <button class="btn-primary" id="admin-salvar-btn" onclick="salvarAdminCell()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN — confirmação (substitui confirm() nativo) -->
+<div class="overlay admin-confirm-overlay" id="overlay-admin-confirm">
+  <div class="admin-confirm-box">
+    <span class="admin-confirm-icon">⚠️</span>
+    <p class="admin-confirm-msg" id="admin-confirm-msg"></p>
+    <div class="admin-confirm-actions">
+      <button type="button" class="admin-confirm-btn admin-confirm-btn--cancel" id="admin-confirm-no">Cancelar</button>
+      <button type="button" class="admin-confirm-btn admin-confirm-btn--danger" id="admin-confirm-yes">Sim, remover</button>
     </div>
   </div>
 </div>
@@ -1775,9 +1787,54 @@ document.getElementById("overlay-editar").addEventListener("click",function(e){i
 // ════════════════════════════════════════
 function showToast(msg,type){
   const t=document.getElementById("toast");
-  t.textContent=msg;t.className=`toast ${type} show`;
+  const icons={success:"✓","error-toast":"✕"};
+  const ic=icons[type]||"";
+  t.innerHTML=ic
+    ?`<span class="toast-icon" aria-hidden="true">${ic}</span><span class="toast-text">${msg}</span>`
+    :msg;
+  const inAdmin=document.getElementById("overlay-admin")?.classList.contains("open")
+    ||document.getElementById("overlay-admin-editar")?.classList.contains("open");
+  t.className=`toast ${type} show${inAdmin?" toast--admin":""}`;
   setTimeout(()=>t.classList.remove("show"),3500);
 }
+
+function setAdminAlert(el,msg,type="error"){
+  if(!el) return;
+  if(!msg){
+    el.textContent="";
+    el.className="admin-alert";
+    el.style.display="none";
+    return;
+  }
+  el.textContent=msg;
+  el.className=`admin-alert admin-alert--${type}`;
+  el.style.display="flex";
+}
+
+let _adminConfirmCb=null;
+
+function showAdminConfirm(msg,onConfirm){
+  document.getElementById("admin-confirm-msg").textContent=msg;
+  _adminConfirmCb=onConfirm;
+  document.getElementById("overlay-admin-confirm").classList.add("open");
+}
+
+document.getElementById("admin-confirm-yes").onclick=()=>{
+  document.getElementById("overlay-admin-confirm").classList.remove("open");
+  const cb=_adminConfirmCb;
+  _adminConfirmCb=null;
+  if(cb) cb();
+};
+document.getElementById("admin-confirm-no").onclick=()=>{
+  document.getElementById("overlay-admin-confirm").classList.remove("open");
+  _adminConfirmCb=null;
+};
+document.getElementById("overlay-admin-confirm").addEventListener("click",e=>{
+  if(e.target===e.currentTarget){
+    e.currentTarget.classList.remove("open");
+    _adminConfirmCb=null;
+  }
+});
 
 // ════════════════════════════════════════
 // LISTA DE ESPERA
@@ -2194,7 +2251,7 @@ function abrirModalAdminEditar(ln, col, reservaIdx) {
   const DIAS_ABV = ["","Seg","Ter","Qua","Qui","Sex"];
   const dia = cab[col-1] || DIAS_ABV[col-1] || "";
 
-  document.getElementById("admin-editar-error").textContent = "";
+  setAdminAlert(document.getElementById("admin-editar-error"), "");
   const nomeInput = document.getElementById("admin-nome-input");
   const emailInput = document.getElementById("admin-email-input");
   const apagarBtn = document.getElementById("admin-apagar-btn");
@@ -2293,11 +2350,11 @@ async function salvarAdminCell() {
   const nome = document.getElementById("admin-nome-input").value.trim();
   const email = document.getElementById("admin-email-input").value.trim().toLowerCase();
   const err = document.getElementById("admin-editar-error");
-  err.textContent = "";
+  setAdminAlert(err, "");
 
-  if (!nome) { err.textContent = "✏️ Digite o nome do professor."; return; }
+  if (!nome) { setAdminAlert(err, "Digite o nome do professor."); return; }
   const sel = Object.keys(adminEditEquipState).filter(t => adminEditEquipState[t].ativo);
-  if (!sel.length) { err.textContent = "🎒 Selecione ao menos um equipamento."; return; }
+  if (!sel.length) { setAdminAlert(err, "Selecione ao menos um equipamento."); return; }
 
   const equipStr = sel.map(t => `${adminEditEquipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
   const tag = email && email.includes("@") ? ` [${email}]` : "";
@@ -2335,51 +2392,54 @@ async function salvarAdminCell() {
     showToast("✅ Reserva salva!", "success");
   } catch (e) {
     const msg = e.name === "AbortError" ? "Servidor demorou a responder. Tente novamente." : (e.message || "Erro ao salvar");
-    err.textContent = `✗ ${msg}`;
+    setAdminAlert(err, msg);
   }
   btn.textContent = "💾 Salvar"; btn.disabled = false;
 }
 
 async function apagarAdminCell() {
   if (adminEditReservaIdx < 0) return;
-  const row = dadosGlobais[adminEditLinha - 1] || [];
-  const valAtual = (row[adminEditColuna - 1] || "").trim();
-  const blocos = valAtual.split(" § ");
-  blocos.splice(adminEditReservaIdx, 1);
-  const valorFinal = blocos.join(" § ").trim();
+  showAdminConfirm("Remover esta reserva deste horário?", async () => {
+    const row = dadosGlobais[adminEditLinha - 1] || [];
+    const valAtual = (row[adminEditColuna - 1] || "").trim();
+    const blocos = valAtual.split(" § ");
+    blocos.splice(adminEditReservaIdx, 1);
+    const valorFinal = blocos.join(" § ").trim();
 
-  const btn = document.getElementById("admin-apagar-btn");
-  btn.textContent = "Apagando..."; btn.disabled = true;
-  try {
-    const res = await adminChamarEditar(adminEditLinha, adminEditColuna, valorFinal);
-    if (!res.ok) throw new Error("Erro ao apagar");
-    if (dadosGlobais[adminEditLinha - 1]) dadosGlobais[adminEditLinha - 1][adminEditColuna - 1] = valorFinal;
-    fecharModalAdminEditar();
-    renderAdminGrid(dadosGlobais);
-    showToast("🗑 Reserva removida.", "success");
-  } catch (e) {
-    const msg = e.name === "AbortError" ? "Servidor demorou. Tente novamente." : "Erro ao apagar";
-    document.getElementById("admin-editar-error").textContent = `✗ ${msg}`;
-  }
-  btn.textContent = "🗑 Apagar Reserva"; btn.disabled = false;
+    const btn = document.getElementById("admin-apagar-btn");
+    btn.textContent = "Apagando..."; btn.disabled = true;
+    try {
+      const res = await adminChamarEditar(adminEditLinha, adminEditColuna, valorFinal);
+      if (!res.ok) throw new Error("Erro ao apagar");
+      if (dadosGlobais[adminEditLinha - 1]) dadosGlobais[adminEditLinha - 1][adminEditColuna - 1] = valorFinal;
+      fecharModalAdminEditar();
+      renderAdminGrid(dadosGlobais);
+      showToast("Reserva removida.", "success");
+    } catch (e) {
+      const msg = e.name === "AbortError" ? "Servidor demorou. Tente novamente." : "Erro ao apagar";
+      setAdminAlert(document.getElementById("admin-editar-error"), msg);
+    }
+    btn.textContent = "🗑 Apagar Reserva"; btn.disabled = false;
+  });
 }
 
 async function adminDeletarRsv(ln, col, reservaIdx) {
-  if (!confirm("Remover esta reserva?")) return;
-  const row = dadosGlobais[ln - 1] || [];
-  const valAtual = (row[col - 1] || "").trim();
-  const blocos = valAtual.split(" § ");
-  blocos.splice(reservaIdx, 1);
-  const valorFinal = blocos.join(" § ").trim();
-  try {
-    const res = await adminChamarEditar(ln, col, valorFinal);
-    if (!res.ok) throw new Error();
-    if (dadosGlobais[ln - 1]) dadosGlobais[ln - 1][col - 1] = valorFinal;
-    renderAdminGrid(dadosGlobais);
-    showToast("🗑 Reserva removida.", "success");
-  } catch (e) {
-    showToast("✗ Erro ao remover reserva.", "error-toast");
-  }
+  showAdminConfirm("Remover esta reserva deste horário?", async () => {
+    const row = dadosGlobais[ln - 1] || [];
+    const valAtual = (row[col - 1] || "").trim();
+    const blocos = valAtual.split(" § ");
+    blocos.splice(reservaIdx, 1);
+    const valorFinal = blocos.join(" § ").trim();
+    try {
+      const res = await adminChamarEditar(ln, col, valorFinal);
+      if (!res.ok) throw new Error();
+      if (dadosGlobais[ln - 1]) dadosGlobais[ln - 1][col - 1] = valorFinal;
+      renderAdminGrid(dadosGlobais);
+      showToast("Reserva removida.", "success");
+    } catch (e) {
+      showToast("Erro ao remover reserva.", "error-toast");
+    }
+  });
 }
 
 async function adminSetCell(ln, col, valor) {
