@@ -50,14 +50,29 @@ def segunda_da_semana_exibida(agora=None):
     return hoje - timedelta(days=py)
 
 
+# ── Cache de worksheets (evita open_by_key a cada chamada) ──
+_spreadsheet = None
+_ws_config   = None
+_ws_espera   = None
+
+def get_spreadsheet():
+    global _spreadsheet
+    if _spreadsheet is None:
+        _spreadsheet = client.open_by_key(SHEET_ID)
+    return _spreadsheet
+
+
 def get_config_ws():
-    spreadsheet = client.open_by_key(SHEET_ID)
+    global _ws_config
+    if _ws_config is not None:
+        return _ws_config
+    sp = get_spreadsheet()
     try:
-        return spreadsheet.worksheet("Config")
+        _ws_config = sp.worksheet("Config")
     except Exception:
-        ws = spreadsheet.add_worksheet(title="Config", rows=50, cols=2)
-        ws.update("A1:B1", [["chave", "valor"]])
-        return ws
+        _ws_config = sp.add_worksheet(title="Config", rows=50, cols=2)
+        _ws_config.update("A1:B1", [["chave", "valor"]])
+    return _ws_config
 
 
 def config_get(chave, default=""):
@@ -194,18 +209,21 @@ def get_espera_sheet():
     """Retorna a aba 'Espera', criando-a se não existir.
     Garante também que o cabeçalho tenha a coluna 'email' (migração de abas antigas).
     """
-    spreadsheet = client.open_by_key(SHEET_ID)
+    global _ws_espera
+    if _ws_espera is not None:
+        return _ws_espera
+    sp = get_spreadsheet()
     try:
-        ws = spreadsheet.worksheet("Espera")
+        ws = sp.worksheet("Espera")
         header = ws.row_values(1)
         if header and "email" not in header:
             ws.insert_cols([[""]] * 1, 3)
             ws.update_cell(1, 3, "email")
-        return ws
+        _ws_espera = ws
     except Exception:
-        ws = spreadsheet.add_worksheet(title="Espera", rows=500, cols=7)
-        ws.append_row(["id", "nome", "email", "linha", "coluna", "equipamentos", "timestamp"])
-        return ws
+        _ws_espera = sp.add_worksheet(title="Espera", rows=500, cols=7)
+        _ws_espera.append_row(["id", "nome", "email", "linha", "coluna", "equipamentos", "timestamp"])
+    return _ws_espera
 
 
 def formatar_reserva_agenda(nome, email, equip):
