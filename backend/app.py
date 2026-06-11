@@ -10,11 +10,6 @@ CORS(app)
 # Linhas de intervalo na planilha (não limpar)
 LINHAS_INTERVALO = {5, 12}
 
-try:
-    print("📊 Planilhas detectadas:", client.list_spreadsheet_files())
-except Exception as e:
-    print("❌ Erro ao conectar Sheets:", e)
-
 # ── Aba de lista de espera ──
 SHEET_ID = "1uixhu6rN03HrMy-1ECf2U-Gr5bpKkbbiToiHGMOglk0"
 
