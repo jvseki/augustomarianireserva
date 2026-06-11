@@ -73,7 +73,7 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="stylesheet" href="style.css?v=admin-alerts-fix">
+  <link rel="stylesheet" href="style.css?v=admin-passado-fix">
   <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
@@ -2102,6 +2102,15 @@ document.getElementById("overlay-admin").addEventListener("click", function(e) {
 function _adminSlotCellHtml(ln, col, val, mobile) {
   const valUp = val.toUpperCase();
   const h = HORARIOS[ln] || ["?","?"];
+
+  if (ePassadoHoje(col, ln)) {
+    if (mobile) return `
+      <div class="admin-slot-row admin-slot-passado">
+        <div class="admin-slot-hora">${h[0]}<br>–<br>${h[1]}</div>
+        <div class="admin-slot-content"><span class="admin-slot-badge admin-slot-badge--passado">🕐 Passado</span></div>
+      </div>`;
+    return `<td class="atd atd-slot atd-passado">🕐 Passado</td>`;
+  }
 
   if (!val || valUp === "LIVRE" || val === "") {
     if (mobile) return `

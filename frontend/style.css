@@ -2299,6 +2299,14 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 .admin-slot-livre  { background: var(--green-bg); }
 .admin-slot-ocupado { background: #f4f8ff; }
 .admin-slot-bloqueado { background: #f1f0ee; }
+.admin-slot-passado { background: #e8e2d8; cursor: default; }
+.admin-slot-passado .admin-slot-hora { color: var(--gray-text); }
+.admin-slot-badge--passado {
+  color: var(--gray-text);
+  background: #e8e2d8;
+  border: 1px solid var(--border);
+  font-style: italic;
+}
 
 .admin-slot-livre .admin-slot-hora  { color: var(--green); }
 .admin-slot-bloqueado .admin-slot-hora { color: var(--ink3); }
@@ -2529,6 +2537,15 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 .atd-livre   { background: var(--green-bg); }
 .atd-bloqueado { background: #f1f0ee; text-align: center; }
 .atd-ocupado { background: #f4f8ff; }
+.atd-passado {
+  background: #e8e2d8 !important;
+  color: var(--gray-text);
+  font-style: italic;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  cursor: default;
+}
 
 .atd-bloq-ico {
   font-size: 13px;
