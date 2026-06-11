@@ -2,7 +2,6 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sheets import get_all_data, update_cell, client, sheet
 from datetime import datetime, timedelta
-import gspread
 import re
 
 app = Flask(__name__)
@@ -10,6 +9,11 @@ CORS(app)
 
 # Linhas de intervalo na planilha (não limpar)
 LINHAS_INTERVALO = {5, 12}
+
+try:
+    print("📊 Planilhas detectadas:", client.list_spreadsheet_files())
+except Exception as e:
+    print("❌ Erro ao conectar Sheets:", e)
 
 # ── Aba de lista de espera ──
 SHEET_ID = "1uixhu6rN03HrMy-1ECf2U-Gr5bpKkbbiToiHGMOglk0"
@@ -51,29 +55,14 @@ def segunda_da_semana_exibida(agora=None):
     return hoje - timedelta(days=py)
 
 
-# ── Cache de worksheets (evita open_by_key a cada chamada) ──
-_spreadsheet = None
-_ws_config   = None
-_ws_espera   = None
-
-def get_spreadsheet():
-    global _spreadsheet
-    if _spreadsheet is None:
-        _spreadsheet = client.open_by_key(SHEET_ID)
-    return _spreadsheet
-
-
 def get_config_ws():
-    global _ws_config
-    if _ws_config is not None:
-        return _ws_config
-    sp = get_spreadsheet()
+    spreadsheet = client.open_by_key(SHEET_ID)
     try:
-        _ws_config = sp.worksheet("Config")
+        return spreadsheet.worksheet("Config")
     except Exception:
-        _ws_config = sp.add_worksheet(title="Config", rows=50, cols=2)
-        _ws_config.update("A1:B1", [["chave", "valor"]])
-    return _ws_config
+        ws = spreadsheet.add_worksheet(title="Config", rows=50, cols=2)
+        ws.update("A1:B1", [["chave", "valor"]])
+        return ws
 
 
 def config_get(chave, default=""):
@@ -157,27 +146,18 @@ def agenda_tem_reservas(valores):
 
 
 def limpar_celulas_agenda():
-    """Limpa agendamentos B2:F15 preservando BLOQUEADO e linhas de intervalo.
-    Usa batch_update: 1 chamada à API em vez de até 60 chamadas individuais.
-    """
-    valores = sheet.get_all_values()
-    atualizacoes = []
+    """Limpa agendamentos B2:F15 (preserva intervalos e BLOQUEADO manual)."""
     for ln in range(2, 16):
         if ln in LINHAS_INTERVALO:
             continue
         for col in range(2, 7):
             try:
-                v = (valores[ln - 1][col - 1] if len(valores) >= ln and len(valores[ln - 1]) >= col else "")
-                if (v or "").strip().upper() == "BLOQUEADO":
+                v = (sheet.cell(ln, col).value or "").strip().upper()
+                if v == "BLOQUEADO":
                     continue
-            except (IndexError, Exception):
+            except Exception:
                 pass
-            atualizacoes.append({
-                "range": gspread.utils.rowcol_to_a1(ln, col),
-                "values": [[""]],
-            })
-    if atualizacoes:
-        sheet.batch_update(atualizacoes)
+            update_cell(ln, col, "")
 
 
 def tentar_limpeza_semana():
@@ -219,21 +199,18 @@ def get_espera_sheet():
     """Retorna a aba 'Espera', criando-a se não existir.
     Garante também que o cabeçalho tenha a coluna 'email' (migração de abas antigas).
     """
-    global _ws_espera
-    if _ws_espera is not None:
-        return _ws_espera
-    sp = get_spreadsheet()
+    spreadsheet = client.open_by_key(SHEET_ID)
     try:
-        ws = sp.worksheet("Espera")
+        ws = spreadsheet.worksheet("Espera")
         header = ws.row_values(1)
         if header and "email" not in header:
             ws.insert_cols([[""]] * 1, 3)
             ws.update_cell(1, 3, "email")
-        _ws_espera = ws
+        return ws
     except Exception:
-        _ws_espera = sp.add_worksheet(title="Espera", rows=500, cols=7)
-        _ws_espera.append_row(["id", "nome", "email", "linha", "coluna", "equipamentos", "timestamp"])
-    return _ws_espera
+        ws = spreadsheet.add_worksheet(title="Espera", rows=500, cols=7)
+        ws.append_row(["id", "nome", "email", "linha", "coluna", "equipamentos", "timestamp"])
+        return ws
 
 
 def formatar_reserva_agenda(nome, email, equip):
@@ -247,20 +224,6 @@ def formatar_reserva_agenda(nome, email, equip):
 @app.route("/")
 def home():
     return jsonify({"status": "API rodando 🚀"})
-
-
-@app.route("/health", methods=["GET"])
-def health():
-    """Health check leve — não toca no Google Sheets.
-    Com ?sheets=1 faz leitura mínima da planilha (para diagnóstico).
-    """
-    if request.args.get("sheets") == "1":
-        try:
-            sheet.cell(1, 1).value
-            return jsonify({"ok": True, "sheets": "ok"})
-        except Exception as e:
-            return jsonify({"ok": False, "sheets": str(e)}), 503
-    return jsonify({"ok": True})
 
 
 @app.route("/agenda", methods=["GET"])
