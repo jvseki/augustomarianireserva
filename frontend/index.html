@@ -2017,11 +2017,11 @@ let adminEditReservaIdx = null; // -1 = nova reserva, >= 0 = editar existente
 let adminEditEquipState = resetEquip();
 
 async function adminChamarEditar(linha, coluna, valor) {
-  // Usa a mesma rota /editar que já funciona (a verificação isAdmin() é feita no frontend)
-  return fetchComTimeout(`${API}/editar`, {
+  const email = getEmailUsuarioLogado();
+  return fetchComTimeout(`${API}/admin/editar`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ linha, coluna, valor }),
+    body: JSON.stringify({ admin_email: email, linha, coluna, valor }),
   }, 12000);
 }
 
