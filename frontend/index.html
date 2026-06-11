@@ -73,7 +73,7 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="stylesheet" href="style.css?v=admin-passado-fix">
+  <link rel="stylesheet" href="style.css?v=admin-estoque-fix">
   <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
@@ -2307,33 +2307,70 @@ document.getElementById("overlay-admin-editar").addEventListener("click", functi
   if (e.target === this) fecharModalAdminEditar();
 });
 
+// Disponibilidade no slot considerando as reservas já existentes na célula.
+// Ao EDITAR uma reserva (idx>=0), devolve o equipamento dela ao estoque (não conta contra si mesma).
+let adminDispAtual = {};
+
+function adminDispSlot(ln, col) {
+  const disp = dispSlot(col, ln, dadosGlobais);
+  if (adminEditReservaIdx >= 0) {
+    const row = dadosGlobais[ln - 1] || [];
+    const val = (row[col - 1] || "").trim();
+    const reservas = listarReservas(val);
+    const rsv = reservas[adminEditReservaIdx];
+    if (rsv && rsv.equip) {
+      const usado = extrairReserva(`x | ${rsv.equip}`) || {};
+      Object.keys(ESTOQUE).forEach(k => { disp[k] = (disp[k] || 0) + (usado[k] || 0); });
+    }
+  }
+  return disp;
+}
+
 function renderAdminEquipRows() {
   const c = document.getElementById("admin-equip-rows");
   c.innerHTML = "";
+  adminDispAtual = adminDispSlot(adminEditLinha, adminEditColuna);
+
   Object.keys(ESTOQUE).forEach(tipo => {
     const { emoji, nome } = ESTOQUE[tipo];
-    const ativo = adminEditEquipState[tipo].ativo;
+    const d = adminDispAtual[tipo] || 0;
+    const esgotado = d <= 0;
+    let ativo = adminEditEquipState[tipo].ativo;
+    if (esgotado) { ativo = false; adminEditEquipState[tipo].ativo = false; }
+    if (ativo && adminEditEquipState[tipo].qtd > d) adminEditEquipState[tipo].qtd = d;
     const qtd = adminEditEquipState[tipo].qtd;
+
+    const dispLabel = esgotado
+      ? "esgotado neste horário"
+      : `${d} disponíve${d === 1 ? "l" : "is"}`;
+
     const row = document.createElement("div");
-    row.className = `equip-row ${tipo}${ativo ? " ativo" : ""}`;
+    row.className = `equip-row ${tipo}${ativo ? " ativo" : ""}${esgotado ? " sem-estoque" : ""}`;
     row.id = `admin-equip-row-${tipo}`;
+
+    const filaBtn = esgotado
+      ? `<button class="fila-equip-btn" onclick="event.stopPropagation();adminFilaEquip('${tipo}')">⏳ fila de espera</button>`
+      : `<div class="equip-row-qty" id="admin-qty-wrap-${tipo}" style="display:${ativo ? "flex" : "none"}">
+        <button class="qty-btn" onclick="event.stopPropagation();mudaAdminQtd('${tipo}',-1)">−</button>
+        <span class="qty-num" id="admin-qty-num-${tipo}">${qtd}</span>
+        <button class="qty-btn" onclick="event.stopPropagation();mudaAdminQtd('${tipo}',+1)">+</button>
+      </div>`;
+
     row.innerHTML = `
       <div class="equip-row-check" id="admin-check-${tipo}">${ativo ? "✔" : ""}</div>
       <span class="equip-row-emoji">${emoji}</span>
       <div class="equip-row-info">
         <div class="equip-row-name">${nome}</div>
+        <div class="equip-row-disp">${dispLabel}</div>
       </div>
-      <div class="equip-row-qty" id="admin-qty-wrap-${tipo}" style="display:${ativo ? "flex" : "none"}">
-        <button class="qty-btn" onclick="event.stopPropagation();mudaAdminQtd('${tipo}',-1)">−</button>
-        <span class="qty-num" id="admin-qty-num-${tipo}">${qtd}</span>
-        <button class="qty-btn" onclick="event.stopPropagation();mudaAdminQtd('${tipo}',+1)">+</button>
-      </div>`;
-    row.onclick = () => toggleAdminEquip(tipo);
+      ${filaBtn}`;
+    if (!esgotado) row.onclick = () => toggleAdminEquip(tipo);
     c.appendChild(row);
   });
 }
 
 function toggleAdminEquip(tipo) {
+  if ((adminDispAtual[tipo] || 0) <= 0) return;
   adminEditEquipState[tipo].ativo = !adminEditEquipState[tipo].ativo;
   const row = document.getElementById(`admin-equip-row-${tipo}`);
   const check = document.getElementById(`admin-check-${tipo}`);
@@ -2350,9 +2387,37 @@ function toggleAdminEquip(tipo) {
 }
 
 function mudaAdminQtd(tipo, delta) {
-  const max = ESTOQUE[tipo].total;
+  const max = adminDispAtual[tipo] || ESTOQUE[tipo].total;
   adminEditEquipState[tipo].qtd = Math.max(1, Math.min(max, adminEditEquipState[tipo].qtd + delta));
   document.getElementById(`admin-qty-num-${tipo}`).textContent = adminEditEquipState[tipo].qtd;
+}
+
+async function adminFilaEquip(tipo) {
+  const nome = document.getElementById("admin-nome-input").value.trim();
+  const email = document.getElementById("admin-email-input").value.trim().toLowerCase();
+  const err = document.getElementById("admin-editar-error");
+  if (!nome) { setAdminAlert(err, "Digite o nome do professor para colocar na fila."); return; }
+  if (!email || !email.includes("@")) {
+    setAdminAlert(err, "Informe o e-mail do professor para usar a fila de espera.");
+    return;
+  }
+  setAdminAlert(err, "");
+  const qtd = adminEditEquipState[tipo].qtd || 1;
+  const equipStr = `${qtd} ${ESTOQUE[tipo].label}`;
+  try {
+    const res = await fetchComTimeout(`${API}/espera`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nome, email, linha: adminEditLinha, coluna: adminEditColuna, equipamentos: equipStr }),
+    }, 12000);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.erro || "Erro ao adicionar na fila");
+    fecharModalAdminEditar();
+    showToast(`${nome} entrou na lista de espera (${ESTOQUE[tipo].nome}).`, "success");
+  } catch (e) {
+    const msg = e.name === "AbortError" ? "Servidor demorou. Tente novamente." : (e.message || "Erro ao adicionar na fila");
+    setAdminAlert(err, msg);
+  }
 }
 
 async function salvarAdminCell() {
@@ -2364,6 +2429,14 @@ async function salvarAdminCell() {
   if (!nome) { setAdminAlert(err, "Digite o nome do professor."); return; }
   const sel = Object.keys(adminEditEquipState).filter(t => adminEditEquipState[t].ativo);
   if (!sel.length) { setAdminAlert(err, "Selecione ao menos um equipamento."); return; }
+
+  const disp = adminDispSlot(adminEditLinha, adminEditColuna);
+  const semEstoque = sel.filter(t => adminEditEquipState[t].qtd > (disp[t] || 0));
+  if (semEstoque.length) {
+    const nomes = semEstoque.map(t => ESTOQUE[t].nome).join(", ");
+    setAdminAlert(err, `Sem estoque para: ${nomes}. Use a fila de espera ou reduza a quantidade.`, "warn");
+    return;
+  }
 
   const equipStr = sel.map(t => `${adminEditEquipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
   const tag = email && email.includes("@") ? ` [${email}]` : "";
