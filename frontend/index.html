@@ -2078,6 +2078,7 @@ let adminEditLinha = null;
 let adminEditColuna = null;
 let adminEditReservaIdx = null; // -1 = nova reserva, >= 0 = editar existente
 let adminEditEquipState = resetEquip();
+let adminHorariosSelecionados = [];
 
 async function adminChamarEditar(linha, coluna, valor) {
   // Usa a mesma rota /editar que já funciona (a verificação isAdmin() é feita no frontend)
@@ -2294,15 +2295,144 @@ function abrirModalAdminEditar(ln, col, reservaIdx) {
     }
     document.getElementById("admin-editar-title").textContent = `Editar · ${dia} ${h[0]}–${h[1]}`;
     apagarBtn.style.display = "block";
+    document.getElementById("admin-horarios-sec").style.display = "none";
+    adminHorariosSelecionados = [];
   } else {
     nomeInput.value = "";
     emailInput.value = "";
-    document.getElementById("admin-editar-title").textContent = `Adicionar · ${dia} ${h[0]}–${h[1]}`;
+    document.getElementById("admin-editar-title").textContent = `Adicionar · ${dia}`;
+    document.getElementById("admin-editar-sub").textContent = "Selecione um ou mais horários";
     apagarBtn.style.display = "none";
+    document.getElementById("admin-horarios-sec").style.display = "block";
+    adminHorariosSelecionados = [ln];
+    renderAdminHorariosBtns(col, dadosGlobais);
   }
 
   renderAdminEquipRows();
   document.getElementById("overlay-admin-editar").classList.add("open");
+}
+
+function marcarBotoesAdminHorarioSelecionados() {
+  const lista = document.getElementById("admin-horarios-lista");
+  if (!lista) return;
+  lista.querySelectorAll(".horario-btn[data-ln]").forEach(btn => {
+    const ln = parseInt(btn.dataset.ln, 10);
+    const on = adminHorariosSelecionados.includes(ln);
+    btn.classList.toggle("selecionado", on);
+    if (!on) btn.blur();
+  });
+}
+
+function renderAdminHorariosBtns(col, dados) {
+  const c = document.getElementById("admin-horarios-lista");
+  if (!c) return;
+  c.innerHTML = "";
+  for (let ln = 2; ln <= 15; ln++) {
+    const ld = dados[ln - 1]; if (!ld) continue;
+    const h = HORARIOS[ln]; if (!h) continue;
+    const celVal = ld[col - 1] || "";
+    const val = celVal.trim().toUpperCase().replace(/\s+/g, " ");
+    const passado = ePassadoHoje(col, ln);
+    const intervalo = LINHAS_INTERVALO.has(ln);
+    const bloqueado = val === "BLOQUEADO" && !intervalo;
+    const temRes = celVal.includes("|");
+
+    const btn = document.createElement("button");
+    btn.className = "horario-btn";
+    btn.type = "button";
+    btn.dataset.ln = String(ln);
+
+    if (passado) {
+      btn.classList.add("passado"); btn.disabled = true;
+      btn.innerHTML = `<div class="h-left"><span class="h-hora">🕐 ${h[0]}–${h[1]}</span></div><span class="h-status">passado</span>`;
+    } else if (intervalo) {
+      btn.classList.add("intervalo-slot"); btn.disabled = true;
+      btn.innerHTML = `<div class="h-left"><span class="h-hora">☕ ${h[0]}–${h[1]}</span></div><span class="h-status">intervalo</span>`;
+    } else if (bloqueado) {
+      btn.classList.add("bloqueado-slot"); btn.disabled = true;
+      btn.innerHTML = `<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span></div><span class="h-status">bloqueado</span>`;
+    } else {
+      let extra = "";
+      if (temRes) {
+        const reservas = listarReservas(celVal);
+        extra = `<span class="h-status" style="color:var(--blue)">${reservas.map(r => r.nome).join(" + ")}</span>`;
+      }
+      const tag = slotDispTag(col, ln, dados);
+      btn.innerHTML = `<div class="h-left"><span class="h-hora">${h[0]}–${h[1]}</span><span class="h-disp">${tag}</span>${extra}</div>`;
+      btn.onclick = () => toggleAdminHorario(ln, btn);
+    }
+    c.appendChild(btn);
+  }
+  marcarBotoesAdminHorarioSelecionados();
+  atualizarAdminResumo();
+}
+
+function toggleAdminHorario(ln, btn) {
+  const idx = adminHorariosSelecionados.indexOf(ln);
+  if (idx === -1) adminHorariosSelecionados.push(ln);
+  else adminHorariosSelecionados.splice(idx, 1);
+  if (btn) btn.blur();
+  marcarBotoesAdminHorarioSelecionados();
+  sincronizarAdminEquipComHorarios();
+  atualizarAdminResumo();
+  renderAdminEquipRows();
+}
+
+function textoAvisoDispDivergenteAdmin(coluna, dados) {
+  if (adminHorariosSelecionados.length < 2) return "";
+  const partes = [];
+  Object.keys(ESTOQUE).forEach(tipo => {
+    if (!equipDispDiverge(coluna, adminHorariosSelecionados, dados, tipo)) return;
+    const det = adminHorariosSelecionados
+      .map(ln => {
+        const q = dispSlot(coluna, ln, dados)[tipo];
+        return `${labelHorario(ln)}: ${q}`;
+      })
+      .join(" · ");
+    const min = dispSelecao(coluna, adminHorariosSelecionados, dados)[tipo];
+    partes.push(
+      `<strong>${ESTOQUE[tipo].nome}</strong> (${det}). Máximo em todos os horários: <strong>${min}</strong>.`
+    );
+  });
+  if (!partes.length) return "";
+  return (
+    "⚠️ A disponibilidade muda entre os horários — " +
+    partes.join(" ") +
+    " Se precisar de quantidades diferentes, reserve manhã e tarde em duas etapas."
+  );
+}
+
+function atualizarAdminResumo() {
+  const el = document.getElementById("admin-resumo-selecao");
+  if (!el) return;
+  const n = adminHorariosSelecionados.length;
+  if (n === 0) {
+    el.textContent = "Nenhum horário selecionado";
+    el.className = "resumo-vazio";
+    return;
+  }
+  const base = `${n} horário${n > 1 ? "s" : ""} selecionado${n > 1 ? "s" : ""}`;
+  const aviso = textoAvisoDispDivergenteAdmin(adminEditColuna, dadosGlobais);
+  if (aviso) {
+    el.innerHTML = `${base}<div class="resumo-aviso">${aviso}</div>`;
+    el.className = "com-aviso";
+  } else {
+    el.textContent = base;
+    el.className = "";
+  }
+}
+
+function sincronizarAdminEquipComHorarios() {
+  if (!adminHorariosSelecionados.length) return;
+  const disp = dispSelecao(adminEditColuna, adminHorariosSelecionados, dadosGlobais);
+  Object.keys(ESTOQUE).forEach(tipo => {
+    if (disp[tipo] <= 0) {
+      adminEditEquipState[tipo].ativo = false;
+      adminEditEquipState[tipo].qtd = 1;
+    } else if (adminEditEquipState[tipo].ativo && adminEditEquipState[tipo].qtd > disp[tipo]) {
+      adminEditEquipState[tipo].qtd = disp[tipo];
+    }
+  });
 }
 
 function fecharModalAdminEditar() {
