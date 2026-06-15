@@ -21,7 +21,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=19').then(reg => {
+        navigator.serviceWorker.register('/sw.js?v=20').then(reg => {
           swRegistration = reg;
 
           // Já tem um SW esperando (update chegou antes do load)
@@ -73,8 +73,8 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="stylesheet" href="style.css?v=deploy-v19">
-  <!-- app-version: 2026-06-11-v19-fila-qtd -->
+  <link rel="stylesheet" href="style.css?v=deploy-v20">
+  <!-- app-version: 2026-06-11-v20-admin-multi -->
   <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
@@ -2294,6 +2294,7 @@ function abrirModalAdminEditar(ln, col, reservaIdx) {
       }
     }
     document.getElementById("admin-editar-title").textContent = `Editar · ${dia} ${h[0]}–${h[1]}`;
+    document.getElementById("admin-editar-sub").textContent = "";
     apagarBtn.style.display = "block";
     document.getElementById("admin-horarios-sec").style.display = "none";
     adminHorariosSelecionados = [];
@@ -2437,6 +2438,7 @@ function sincronizarAdminEquipComHorarios() {
 
 function fecharModalAdminEditar() {
   document.getElementById("overlay-admin-editar").classList.remove("open");
+  adminHorariosSelecionados = [];
 }
 
 document.getElementById("overlay-admin-editar").addEventListener("click", function(e) {
@@ -2465,7 +2467,18 @@ function adminDispSlot(ln, col) {
 function renderAdminEquipRows() {
   const c = document.getElementById("admin-equip-rows");
   c.innerHTML = "";
-  adminDispAtual = adminDispSlot(adminEditLinha, adminEditColuna);
+
+  const editando = adminEditReservaIdx >= 0;
+  const nHor = adminHorariosSelecionados.length;
+
+  if (editando) {
+    adminDispAtual = adminDispSlot(adminEditLinha, adminEditColuna);
+  } else if (nHor > 0) {
+    sincronizarAdminEquipComHorarios();
+    adminDispAtual = dispSelecao(adminEditColuna, adminHorariosSelecionados, dadosGlobais);
+  } else {
+    adminDispAtual = Object.fromEntries(Object.keys(ESTOQUE).map(k => [k, ESTOQUE[k].total]));
+  }
 
   Object.keys(ESTOQUE).forEach(tipo => {
     const { emoji, nome } = ESTOQUE[tipo];
@@ -2477,9 +2490,19 @@ function renderAdminEquipRows() {
     const qtd = adminEditEquipState[tipo].qtd;
 
     const maxFila = ESTOQUE[tipo].total;
-    const dispLabel = esgotado
-      ? `esgotado neste horário · máx. ${maxFila} na fila`
-      : `${d} disponíve${d === 1 ? "l" : "is"}`;
+    let dispLabel;
+    if (esgotado) {
+      dispLabel = !editando && nHor > 1
+        ? "esgotado em pelo menos um horário"
+        : `esgotado neste horário · máx. ${maxFila} na fila`;
+    } else if (!editando && nHor > 1 && equipDispDiverge(adminEditColuna, adminHorariosSelecionados, dadosGlobais, tipo)) {
+      const det = adminHorariosSelecionados
+        .map(ln => `${HORARIOS[ln][0]}: ${dispSlot(adminEditColuna, ln, dadosGlobais)[tipo]}`)
+        .join(" · ");
+      dispLabel = `máx. ${d} em todos (${det})`;
+    } else {
+      dispLabel = `${d} disponíve${d === 1 ? "l" : "is"}${!editando && nHor > 1 ? ` em cada um dos ${nHor} horários` : ""}`;
+    }
 
     const row = document.createElement("div");
     row.className = `equip-row ${tipo}${ativo ? " ativo" : ""}${esgotado ? " sem-estoque" : ""}`;
@@ -2558,22 +2581,30 @@ async function adminFilaEquip(tipo) {
     setAdminAlert(err, "Informe o e-mail do professor para usar a fila de espera.");
     return;
   }
+  const linhas = adminEditReservaIdx >= 0
+    ? [adminEditLinha]
+    : adminHorariosSelecionados;
+  if (!linhas.length) { setAdminAlert(err, "Selecione ao menos um horário."); return; }
   setAdminAlert(err, "");
   const qtd = adminEditEquipState[tipo].qtd || 1;
   const equipStr = `${qtd} ${ESTOQUE[tipo].label}`;
+  let ok = 0;
   try {
-    const res = await fetchComTimeout(`${API}/espera`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nome, email, linha: adminEditLinha, coluna: adminEditColuna, equipamentos: equipStr }),
-    }, 12000);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.erro || "Erro ao adicionar na fila");
+    for (const ln of linhas) {
+      const res = await fetchComTimeout(`${API}/espera`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome, email, linha: ln, coluna: adminEditColuna, equipamentos: equipStr }),
+      }, 12000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.erro || "Erro ao adicionar na fila");
+      ok++;
+    }
     fecharModalAdminEditar();
-    showToast(`${nome} entrou na lista de espera (${qtd} ${ESTOQUE[tipo].nome}).`, "success");
+    showToast(`${nome} entrou na lista de espera (${qtd} ${ESTOQUE[tipo].nome}${ok > 1 ? ` · ${ok} horários` : ""}).`, "success");
   } catch (e) {
     const msg = e.name === "AbortError" ? "Servidor demorou. Tente novamente." : (e.message || "Erro ao adicionar na fila");
-    setAdminAlert(err, msg);
+    setAdminAlert(err, ok > 0 ? `${msg} (${ok} de ${linhas.length} horários salvos)` : msg);
   }
 }
 
@@ -2587,53 +2618,117 @@ async function salvarAdminCell() {
   const sel = Object.keys(adminEditEquipState).filter(t => adminEditEquipState[t].ativo);
   if (!sel.length) { setAdminAlert(err, "Selecione ao menos um equipamento."); return; }
 
-  const disp = adminDispSlot(adminEditLinha, adminEditColuna);
-  const semEstoque = sel.filter(t => adminEditEquipState[t].qtd > (disp[t] || 0));
+  const editando = adminEditReservaIdx >= 0;
+  const linhasAlvo = editando ? [adminEditLinha] : adminHorariosSelecionados;
+  if (!editando && !linhasAlvo.length) { setAdminAlert(err, "Selecione ao menos um horário."); return; }
+
+  const dispMin = editando
+    ? adminDispSlot(adminEditLinha, adminEditColuna)
+    : dispSelecao(adminEditColuna, linhasAlvo, dadosGlobais);
+  const semEstoque = sel.filter(t => adminEditEquipState[t].qtd > (dispMin[t] || 0));
   if (semEstoque.length) {
     const nomes = semEstoque.map(t => ESTOQUE[t].nome).join(", ");
     setAdminAlert(err, `Sem estoque para: ${nomes}. Use a fila de espera ou reduza a quantidade.`, "warn");
     return;
   }
 
+  if (!editando) {
+    for (const ln of linhasAlvo) {
+      const dispLn = dispSlot(adminEditColuna, ln, dadosGlobais);
+      for (const t of sel) {
+        if (adminEditEquipState[t].qtd > dispLn[t]) {
+          setAdminAlert(err,
+            `Em ${labelHorario(ln)} só há ${dispLn[t]} ${ESTOQUE[t].label}(s), mas você pediu ${adminEditEquipState[t].qtd}. ` +
+            `Reduza a quantidade ou desmarque horários com menos disponibilidade.`,
+            "warn"
+          );
+          return;
+        }
+      }
+    }
+  } else {
+    const disp = adminDispSlot(adminEditLinha, adminEditColuna);
+    const semEstoqueEdit = sel.filter(t => adminEditEquipState[t].qtd > (disp[t] || 0));
+    if (semEstoqueEdit.length) {
+      const nomes = semEstoqueEdit.map(t => ESTOQUE[t].nome).join(", ");
+      setAdminAlert(err, `Sem estoque para: ${nomes}. Use a fila de espera ou reduza a quantidade.`, "warn");
+      return;
+    }
+  }
+
   const equipStr = sel.map(t => `${adminEditEquipState[t].qtd} ${ESTOQUE[t].label}`).join(" + ");
   const tag = email && email.includes("@") ? ` [${email}]` : "";
   const novaReserva = `${nome}${tag} | ${equipStr}`;
 
-  const row = dadosGlobais[adminEditLinha - 1] || [];
-  const valAtual = (row[adminEditColuna - 1] || "").trim();
-  let valorFinal;
-  if (adminEditReservaIdx >= 0) {
-    const blocos = valAtual.split(" § ");
-    if (adminEditReservaIdx < blocos.length) {
-      blocos[adminEditReservaIdx] = novaReserva;
-    } else {
-      blocos.push(novaReserva);
-    }
-    valorFinal = blocos.join(" § ").trim();
-  } else {
-    const vUp = valAtual.toUpperCase();
-    valorFinal = (!valAtual || vUp === "" || vUp === "LIVRE" || vUp === "BLOQUEADO")
-      ? novaReserva
-      : `${valAtual} § ${novaReserva}`;
-  }
-
   const btn = document.getElementById("admin-salvar-btn");
   btn.textContent = "Salvando..."; btn.disabled = true;
-  try {
-    const res = await adminChamarEditar(adminEditLinha, adminEditColuna, valorFinal);
-    if (!res.ok) {
-      const d = await res.json().catch(() => ({}));
-      throw new Error(d.erro || "Erro ao salvar");
+
+  if (editando) {
+    const row = dadosGlobais[adminEditLinha - 1] || [];
+    const valAtual = (row[adminEditColuna - 1] || "").trim();
+    const blocos = valAtual.split(" § ");
+    if (adminEditReservaIdx < blocos.length) blocos[adminEditReservaIdx] = novaReserva;
+    else blocos.push(novaReserva);
+    const valorFinal = blocos.join(" § ").trim();
+    try {
+      const res = await adminChamarEditar(adminEditLinha, adminEditColuna, valorFinal);
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.erro || "Erro ao salvar");
+      }
+      if (dadosGlobais[adminEditLinha - 1]) dadosGlobais[adminEditLinha - 1][adminEditColuna - 1] = valorFinal;
+      fecharModalAdminEditar();
+      renderAdminGrid(dadosGlobais);
+      showToast("✅ Reserva salva!", "success");
+    } catch (e) {
+      const msg = e.name === "AbortError" ? "Servidor demorou a responder. Tente novamente." : (e.message || "Erro ao salvar");
+      setAdminAlert(err, msg);
     }
-    if (dadosGlobais[adminEditLinha - 1]) dadosGlobais[adminEditLinha - 1][adminEditColuna - 1] = valorFinal;
-    fecharModalAdminEditar();
-    renderAdminGrid(dadosGlobais);
-    showToast("✅ Reserva salva!", "success");
-  } catch (e) {
-    const msg = e.name === "AbortError" ? "Servidor demorou a responder. Tente novamente." : (e.message || "Erro ao salvar");
-    setAdminAlert(err, msg);
+    btn.textContent = "💾 Salvar"; btn.disabled = false;
+    return;
   }
+
+  let salvos = 0, erros = 0;
+  const falhasHorario = [];
+  for (const ln of linhasAlvo) {
+    const dispLn = dispSlot(adminEditColuna, ln, dadosGlobais);
+    if (sel.some(t => adminEditEquipState[t].qtd > dispLn[t])) {
+      falhasHorario.push(labelHorario(ln));
+      erros++;
+      continue;
+    }
+    try {
+      const ld = dadosGlobais[ln - 1];
+      const valorAtual = ld ? (ld[adminEditColuna - 1] || "").trim() : "";
+      const vUp = valorAtual.toUpperCase();
+      const valorFinal = (!valorAtual || vUp === "" || vUp === "LIVRE" || vUp === "BLOQUEADO")
+        ? novaReserva
+        : `${valorAtual} § ${novaReserva}`;
+      const res = await adminChamarEditar(ln, adminEditColuna, valorFinal);
+      if (!res.ok) throw new Error();
+      salvos++;
+      if (dadosGlobais[ln - 1]) dadosGlobais[ln - 1][adminEditColuna - 1] = valorFinal;
+    } catch (e) {
+      erros++;
+      falhasHorario.push(labelHorario(ln));
+    }
+  }
+
   btn.textContent = "💾 Salvar"; btn.disabled = false;
+
+  if (falhasHorario.length && salvos === 0) {
+    setAdminAlert(err, `Não foi possível salvar (${falhasHorario.join(", ")}). Atualize a agenda e tente de novo.`);
+    return;
+  }
+  fecharModalAdminEditar();
+  renderAdminGrid(dadosGlobais);
+  if (erros === 0) {
+    showToast(`✅ ${salvos} horário${salvos > 1 ? "s" : ""} reservado${salvos > 1 ? "s" : ""}!`, "success");
+  } else if (salvos > 0) {
+    showToast(`⚠️ ${salvos} salvo(s), ${erros} falhou.`, "error-toast");
+  } else {
+    showToast("Erro ao salvar. Tente novamente.", "error-toast");
+  }
 }
 
 async function apagarAdminCell() {
