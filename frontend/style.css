@@ -714,14 +714,17 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 }
 
 /* ── Lista de horários ── */
-#horarios-lista {
+#horarios-lista,
+#admin-horarios-lista {
   display: flex; flex-direction: column; gap: 6px;
   max-height: 230px; overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   margin-bottom: 8px; padding-right: 2px;
 }
-#horarios-lista::-webkit-scrollbar { width: 4px; }
-#horarios-lista::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+#horarios-lista::-webkit-scrollbar,
+#admin-horarios-lista::-webkit-scrollbar { width: 4px; }
+#horarios-lista::-webkit-scrollbar-thumb,
+#admin-horarios-lista::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 .horario-btn {
   display: flex; align-items: center; justify-content: space-between;
@@ -759,34 +762,40 @@ tbody tr:hover td:not(.label-col):not(.expirado):not(.intervalo-cell):not(.bloqu
 .horario-btn.bloqueado-slot .h-status{ color:var(--red); }
 .horario-btn.intervalo-slot .h-status{ color:var(--orange); }
 
-#resumo-selecao {
+#resumo-selecao,
+#admin-resumo-selecao {
   font-size:11px; font-weight:700; color:var(--ink2);
   background:#fffdf7; border:1.5px solid var(--border);
   border-radius:var(--radius-sm); padding:6px 12px; margin-bottom:14px; text-align:center;
 }
-#resumo-selecao:not(.resumo-vazio):not(.com-aviso) {
+#resumo-selecao:not(.resumo-vazio):not(.com-aviso),
+#admin-resumo-selecao:not(.resumo-vazio):not(.com-aviso) {
   color:var(--green);
   background:var(--green-bg); border-color:var(--green-bd);
 }
-#resumo-selecao.resumo-vazio {
+#resumo-selecao.resumo-vazio,
+#admin-resumo-selecao.resumo-vazio {
   color:var(--ink2);
   background:#fffdf7;
   border-color:var(--border);
 }
-#resumo-selecao.com-aviso {
+#resumo-selecao.com-aviso,
+#admin-resumo-selecao.com-aviso {
   color: var(--ink2);
   background: var(--orange-bg, #fff8ed);
   border-color: var(--orange-bd, #f0c878);
   text-align: left;
 }
-#resumo-selecao .resumo-aviso {
+#resumo-selecao .resumo-aviso,
+#admin-resumo-selecao .resumo-aviso {
   margin-top: 8px;
   font-size: 10px;
   font-weight: 600;
   line-height: 1.45;
   color: #9a5b00;
 }
-#resumo-selecao .resumo-aviso strong { font-weight: 800; }
+#resumo-selecao .resumo-aviso strong,
+#admin-resumo-selecao .resumo-aviso strong { font-weight: 800; }
 
 /* ── Equipamentos ── */
 .equip-rows { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
