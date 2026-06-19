@@ -21,7 +21,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=20').then(reg => {
+        navigator.serviceWorker.register('/sw.js?v=21').then(reg => {
           swRegistration = reg;
 
           // Já tem um SW esperando (update chegou antes do load)
@@ -73,8 +73,8 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="stylesheet" href="style.css?v=deploy-v20">
-  <!-- app-version: 2026-06-11-v20-admin-multi -->
+  <link rel="stylesheet" href="style.css?v=deploy-v21-bloqueio">
+  <!-- app-version: 2026-06-11-v21-bloqueio-equip -->
   <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
@@ -299,6 +299,7 @@
       <span class="badge livre">Livre</span>
       <span class="badge reservado">Reservado</span>
       <span class="badge bloqueado">Bloqueado</span>
+      <span class="badge bloqueado-parcial">🚫 Parcial</span>
       <span class="badge intervalo">☕ Intervalo</span>
       <span class="badge expirado">🕐 Passado</span>
     </div>
@@ -446,6 +447,35 @@
     <div class="editar-actions">
       <button class="btn-danger" id="admin-apagar-btn" onclick="apagarAdminCell()" style="display:none">🗑 Apagar Reserva</button>
       <button class="btn-primary" id="admin-salvar-btn" onclick="salvarAdminCell()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN — BLOQUEAR HORÁRIO / EQUIPAMENTOS -->
+<div class="overlay" id="overlay-admin-bloquear">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModalAdminBloquear()">×</button>
+    <div class="modal-header">
+      <span class="modal-emoji">🔒</span>
+      <div>
+        <h2 id="admin-blk-title">Bloquear</h2>
+        <p class="modal-sub" id="admin-blk-sub"></p>
+      </div>
+    </div>
+    <div class="sec-label">Tipo de bloqueio</div>
+    <div class="admin-blk-opcoes">
+      <button type="button" class="admin-blk-opcao" id="admin-blk-total-btn" onclick="adminBlkSetModo('total')">🔒 Horário inteiro</button>
+      <button type="button" class="admin-blk-opcao ativo" id="admin-blk-equip-btn" onclick="adminBlkSetModo('equip')">🎒 Só equipamentos</button>
+    </div>
+    <div id="admin-blk-equip-sec">
+      <div class="sec-label">Equipamentos bloqueados (ex.: prova SARESP — só notes)</div>
+      <div class="equip-rows" id="admin-blk-equip-rows"></div>
+      <p class="modal-hint">Tablet e TV podem ficar livres se não marcar. O bloqueio some sozinho quando o horário passa.</p>
+    </div>
+    <div class="admin-alert" id="admin-blk-error" role="alert" style="display:none"></div>
+    <div class="editar-actions">
+      <button class="btn-danger" id="admin-blk-remover-btn" onclick="adminRemoverBloqueio()" style="display:none">✕ Remover bloqueio</button>
+      <button class="btn-primary" id="admin-blk-salvar-btn" onclick="salvarAdminBloqueio()">🔒 Aplicar bloqueio</button>
     </div>
   </div>
 </div>
@@ -707,10 +737,12 @@ async function resetarPassadosHoje(dados) {
     const ln = parseInt(ls);
     if (agora()<toMin(fim)) continue;
     const ld = dados[ln-1]; if(!ld) continue;
-    const v = (ld[col-1]||"").trim().toUpperCase();
-    if (v && v!=="LIVRE" && v!=="BLOQUEADO") {
+    const v = (ld[col-1]||"").trim();
+    // Limpa tudo no horário passado: reservas, BLOQUEADO e BLOQUEIO parcial
+    if (v) {
       try {
         await fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:ln,coluna:col,valor:""})});
+        ld[col-1] = "";
       } catch(e){}
     }
   }
@@ -731,31 +763,63 @@ function celulaComoTexto(valor) {
 }
 
 // ════════════════════════════════════════
-// ESTOQUE
+// ESTOQUE / BLOQUEIO PARCIAL
 // ════════════════════════════════════════
-function extrairReserva(valor) {
+const BLOQUEIO_NOME = "BLOQUEIO";
+
+function celulaBloqueioTotal(valor) {
+  return celulaComoTexto(valor).trim().toUpperCase() === "BLOQUEADO";
+}
+
+function extrairStrBloqueio(valor) {
+  valor = celulaComoTexto(valor);
+  if (!valor || !valor.includes("|")) return null;
+  for (const bloco of valor.split("§")) {
+    const p = bloco.split("|");
+    if (p.length < 2) continue;
+    if (p[0].trim().toUpperCase() === BLOQUEIO_NOME) return (p[1] || "").trim();
+  }
+  return null;
+}
+
+function temBloqueioParcial(valor) {
+  return !!extrairStrBloqueio(valor);
+}
+
+function parseEquipSegmentos(segStr, dest) {
+  if (!segStr) return;
+  segStr.split("+").forEach(seg => {
+    RE_EQUIP.lastIndex = 0;
+    let m;
+    while ((m = RE_EQUIP.exec(seg.trim())) !== null) {
+      const n = m[2].toLowerCase();
+      const qtd = parseInt(m[1], 10);
+      if (n === "tablet") dest.tablet += qtd;
+      else if (n === "notebook prata") dest.prata += qtd;
+      else if (n === "notebook preto") dest.preto += qtd;
+      else if (n === "tv remota") dest.tvremota += qtd;
+    }
+  });
+}
+
+function extrairUsoCelula(valor) {
   valor = celulaComoTexto(valor);
   if (!valor) return null;
-  const v=valor.trim().toUpperCase();
-  if (!v||v==="BLOQUEADO") return null;
+  if (celulaBloqueioTotal(valor)) {
+    return Object.fromEntries(Object.keys(ESTOQUE).map(k => [k, ESTOQUE[k].total]));
+  }
   if (!valor.includes("|")) return null;
-  const res=estoqueZerado();
+  const res = estoqueZerado();
   valor.split("§").forEach(bloco => {
-    const partes=bloco.split("|");
-    if (partes.length<2) return;
-    partes[1].split("+").forEach(seg => {
-      RE_EQUIP.lastIndex = 0;
-      let m;
-      while ((m = RE_EQUIP.exec(seg.trim())) !== null) {
-        const n=m[2].toLowerCase();
-        if      (n==="tablet")         res.tablet+=parseInt(m[1],10);
-        else if (n==="notebook prata") res.prata +=parseInt(m[1],10);
-        else if (n==="notebook preto") res.preto +=parseInt(m[1],10);
-        else if (n==="tv remota")      res.tvremota+=parseInt(m[1],10);
-      }
-    });
+    const partes = bloco.split("|");
+    if (partes.length < 2) return;
+    parseEquipSegmentos(partes[1], res);
   });
   return res;
+}
+
+function extrairReserva(valor) {
+  return extrairUsoCelula(valor);
 }
 
 function listarReservas(valor) {
@@ -764,12 +828,47 @@ function listarReservas(valor) {
   return valor.split("§").map(bloco=>{
     const p=bloco.split("|");
     const rawNome = p[0].trim();
-    // Extrai email se gravado como "Nome [email@x.com]"
+    if (rawNome.toUpperCase() === BLOQUEIO_NOME) return null;
     const emailMatch = rawNome.match(/\[([^\]]+)\]$/);
     const email = emailMatch ? emailMatch[1] : null;
     const nome  = emailMatch ? rawNome.replace(/\s*\[[^\]]+\]$/, "").trim() : rawNome;
     return {nome, email, equip:(p[1]||"").trim()};
-  }).filter(r=>r.nome);
+  }).filter(r=>r && r.nome);
+}
+
+function montarStrBloqueio(tipos) {
+  return tipos
+    .map(t => `${ESTOQUE[t].total} ${ESTOQUE[t].label}`)
+    .join(" + ");
+}
+
+function valorSemBloqueio(valor) {
+  valor = celulaComoTexto(valor).trim();
+  if (!valor || celulaBloqueioTotal(valor)) return "";
+  const partes = valor.split("§").map(s => s.trim()).filter(bloco => {
+    const nome = bloco.split("|")[0].trim().toUpperCase();
+    return nome !== BLOQUEIO_NOME;
+  });
+  return partes.join(" § ").trim();
+}
+
+function montarValorComBloqueio(valorAtual, equipStr, modoTotal) {
+  if (modoTotal) return "BLOQUEADO";
+  const resto = valorSemBloqueio(valorAtual);
+  const bloco = `${BLOQUEIO_NOME} | ${equipStr}`;
+  return resto ? `${bloco} § ${resto}` : bloco;
+}
+
+function fmtBloqueioBadges(valor) {
+  const str = extrairStrBloqueio(valor);
+  if (!str) return "";
+  return fmtEquipBadges(str).replace(/class="eq-badge/g, 'class="eq-badge eq-badge-bloq');
+}
+
+function fmtBloqueioHtml(valor) {
+  const badges = fmtBloqueioBadges(valor);
+  if (!badges) return "";
+  return `<div class="cell-bloqueio"><span class="cell-bloqueio-label">🚫 Bloqueado:</span>${badges}</div>`;
 }
 
 function getEmailUsuarioLogado() {
@@ -793,9 +892,11 @@ function dispSlot(coluna,ln,dados) {
   const ld=dados[ln-1];
   const base=Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,ESTOQUE[k].total]));
   if (!ld) return base;
-  const r=extrairReserva(ld[coluna-1]);
+  const celVal = ld[coluna-1];
+  if (celulaBloqueioTotal(celVal)) return estoqueZerado();
+  const r=extrairUsoCelula(celVal);
   if (!r) return base;
-  return Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,base[k]-(r[k]||0)]));
+  return Object.fromEntries(Object.keys(ESTOQUE).map(k=>[k,Math.max(0, base[k]-(r[k]||0))]));
 }
 
 function dispSelecao(coluna,linhas,dados) {
@@ -1014,11 +1115,11 @@ function buildMobSlotHtml(h, innerHtml, showChevron) {
 
 function fmtReservado(valor, coluna, linhaNum) {
   valor = celulaComoTexto(valor);
+  const blk = fmtBloqueioHtml(valor);
   const reservas=listarReservas(valor);
   const meuEmail = getEmailUsuarioLogado();
-  if (!reservas.length) return `<span>${valor}</span>`;
-  return reservas.map((r,i)=>{
-    // Identifica pelo email — preciso e à prova de homônimos
+  if (!reservas.length) return blk || `<span>${valor}</span>`;
+  const rsvHtml = reservas.map((r,i)=>{
     const ehMeu = !!(meuEmail && r.email &&
       r.email.toLowerCase() === meuEmail);
     const editTag = ehMeu
@@ -1028,6 +1129,7 @@ function fmtReservado(valor, coluna, linhaNum) {
       <span class="cell-nome ${ehMeu?"meu-nome":""}">${r.nome}</span>
       ${fmtEquipBadges(r.equip)}${editTag}</div>`;
   }).join("");
+  return (blk || "") + rsvHtml;
 }
 
 function renderTabela(dados) {
@@ -1196,9 +1298,10 @@ function renderCards(dados) {
             row.onclick=()=>abrirModalDia(col,diaNome,dados,ln);
           } else if (val.includes("|")) {
             const reservas=listarReservas(cellRaw);
+            const blkMob=fmtBloqueioHtml(cellRaw);
             const temDisp=dispSlot(col,ln,dados);
             const algumDisp=temAlgumDisponivel(temDisp);
-            const resBlock=fmtMobReservasBlock(reservas,col,ln);
+            const resBlock=reservas.length?fmtMobReservasBlock(reservas,col,ln):(blkMob||"");
             if (algumDisp) {
               cls="livre"; livreTotal++;
               innerHtml=`${resBlock}
@@ -1313,7 +1416,7 @@ function renderHorariosBtns(coluna,dados,linhaPreSel) {
     const val=celVal.trim().toUpperCase().replace(/\s+/g," ");
     const passado=ePassadoHoje(coluna,ln);
     const intervalo=LINHAS_INTERVALO.has(ln);
-    const bloqueado=val==="BLOQUEADO"&&!intervalo;
+    const bloqueado=celulaBloqueioTotal(celVal)&&!intervalo;
     const temRes=celVal.includes("|");
     const disp=temRes?dispSlot(coluna,ln,dados):null;
     const lotado=temRes&&disp&&slotTotalmenteLotado(disp);
@@ -2080,6 +2183,144 @@ let adminEditReservaIdx = null; // -1 = nova reserva, >= 0 = editar existente
 let adminEditEquipState = resetEquip();
 let adminHorariosSelecionados = [];
 
+let adminHorariosSelecionados = [];
+
+// Bloqueio parcial / total
+let adminBlkLinha = null;
+let adminBlkColuna = null;
+let adminBlkModo = "equip";
+let adminBlkEquipSel = {};
+
+function adminBlkResetEquip() {
+  return Object.fromEntries(Object.keys(ESTOQUE).map(k => [k, false]));
+}
+
+function abrirModalAdminBloquear(ln, col) {
+  if (!isAdmin()) return;
+  adminBlkLinha = ln;
+  adminBlkColuna = col;
+  const h = HORARIOS[ln] || ["?","?"];
+  const cab = dadosGlobais[0] || [];
+  const DIAS_ABV = ["","Seg","Ter","Qua","Qui","Sex"];
+  const dia = cab[col-1] || DIAS_ABV[col-1] || "";
+  const row = dadosGlobais[ln - 1] || [];
+  const val = (row[col - 1] || "").trim();
+
+  document.getElementById("admin-blk-title").textContent = `Bloquear · ${dia}`;
+  document.getElementById("admin-blk-sub").textContent = `${h[0]}–${h[1]}`;
+  setAdminAlert(document.getElementById("admin-blk-error"), "");
+
+  if (celulaBloqueioTotal(val)) {
+    adminBlkModo = "total";
+    adminBlkEquipSel = adminBlkResetEquip();
+  } else {
+    adminBlkModo = "equip";
+    adminBlkEquipSel = adminBlkResetEquip();
+    const strBlk = extrairStrBloqueio(val);
+    if (strBlk) {
+      const uso = extrairUsoCelula(`${BLOQUEIO_NOME} | ${strBlk}`) || {};
+      Object.keys(ESTOQUE).forEach(t => { adminBlkEquipSel[t] = (uso[t] || 0) > 0; });
+    }
+  }
+
+  const temBlk = celulaBloqueioTotal(val) || temBloqueioParcial(val);
+  document.getElementById("admin-blk-remover-btn").style.display = temBlk ? "inline-flex" : "none";
+  adminBlkSetModo(adminBlkModo, false);
+  renderAdminBlkEquipRows();
+  document.getElementById("overlay-admin-bloquear").classList.add("open");
+}
+
+function fecharModalAdminBloquear() {
+  document.getElementById("overlay-admin-bloquear").classList.remove("open");
+}
+
+document.getElementById("overlay-admin-bloquear").addEventListener("click", function(e) {
+  if (e.target === this) fecharModalAdminBloquear();
+});
+
+function adminBlkSetModo(modo, render = true) {
+  adminBlkModo = modo;
+  document.getElementById("admin-blk-total-btn").classList.toggle("ativo", modo === "total");
+  document.getElementById("admin-blk-equip-btn").classList.toggle("ativo", modo === "equip");
+  document.getElementById("admin-blk-equip-sec").style.display = modo === "equip" ? "block" : "none";
+  if (render) renderAdminBlkEquipRows();
+}
+
+function renderAdminBlkEquipRows() {
+  const c = document.getElementById("admin-blk-equip-rows");
+  c.innerHTML = "";
+  Object.keys(ESTOQUE).forEach(tipo => {
+    const { emoji, nome, total } = ESTOQUE[tipo];
+    const ativo = !!adminBlkEquipSel[tipo];
+    const row = document.createElement("div");
+    row.className = `equip-row ${tipo}${ativo ? " ativo" : ""}`;
+    row.innerHTML = `
+      <div class="equip-row-check">${ativo ? "✔" : ""}</div>
+      <span class="equip-row-emoji">${emoji}</span>
+      <div class="equip-row-info">
+        <div class="equip-row-name">${nome}</div>
+        <div class="equip-row-disp">bloqueia todos os ${total}</div>
+      </div>`;
+    row.onclick = () => {
+      adminBlkEquipSel[tipo] = !adminBlkEquipSel[tipo];
+      renderAdminBlkEquipRows();
+    };
+    c.appendChild(row);
+  });
+}
+
+async function salvarAdminBloqueio() {
+  const err = document.getElementById("admin-blk-error");
+  setAdminAlert(err, "");
+  const row = dadosGlobais[adminBlkLinha - 1] || [];
+  const valAtual = (row[adminBlkColuna - 1] || "").trim();
+  let valorFinal;
+
+  if (adminBlkModo === "total") {
+    valorFinal = montarValorComBloqueio(valorSemBloqueio(valAtual), "", true);
+  } else {
+    const tipos = Object.keys(adminBlkEquipSel).filter(t => adminBlkEquipSel[t]);
+    if (!tipos.length) {
+      setAdminAlert(err, "Selecione ao menos um equipamento para bloquear, ou use horário inteiro.");
+      return;
+    }
+    valorFinal = montarValorComBloqueio(valAtual, montarStrBloqueio(tipos), false);
+  }
+
+  const btn = document.getElementById("admin-blk-salvar-btn");
+  btn.textContent = "Salvando..."; btn.disabled = true;
+  try {
+    const res = await adminChamarEditar(adminBlkLinha, adminBlkColuna, valorFinal);
+    if (!res.ok) throw new Error("Erro ao bloquear");
+    if (dadosGlobais[adminBlkLinha - 1]) dadosGlobais[adminBlkLinha - 1][adminBlkColuna - 1] = valorFinal;
+    fecharModalAdminBloquear();
+    renderAdminGrid(dadosGlobais);
+    showToast(adminBlkModo === "total" ? "🔒 Horário bloqueado." : "🚫 Equipamentos bloqueados.", "success");
+  } catch (e) {
+    setAdminAlert(err, e.name === "AbortError" ? "Servidor demorou. Tente novamente." : "Erro ao bloquear.");
+  }
+  btn.textContent = "🔒 Aplicar bloqueio"; btn.disabled = false;
+}
+
+async function adminRemoverBloqueio() {
+  const row = dadosGlobais[adminBlkLinha - 1] || [];
+  const valAtual = (row[adminBlkColuna - 1] || "").trim();
+  const valorFinal = valorSemBloqueio(valAtual);
+  const btn = document.getElementById("admin-blk-remover-btn");
+  btn.textContent = "Removendo..."; btn.disabled = true;
+  try {
+    const res = await adminChamarEditar(adminBlkLinha, adminBlkColuna, valorFinal);
+    if (!res.ok) throw new Error();
+    if (dadosGlobais[adminBlkLinha - 1]) dadosGlobais[adminBlkLinha - 1][adminBlkColuna - 1] = valorFinal;
+    fecharModalAdminBloquear();
+    renderAdminGrid(dadosGlobais);
+    showToast("Bloqueio removido.", "success");
+  } catch (e) {
+    setAdminAlert(document.getElementById("admin-blk-error"), "Erro ao remover bloqueio.");
+  }
+  btn.textContent = "✕ Remover bloqueio"; btn.disabled = false;
+}
+
 async function adminChamarEditar(linha, coluna, valor) {
   // Usa a mesma rota /editar que já funciona (a verificação isAdmin() é feita no frontend)
   return fetchComTimeout(`${API}/editar`, {
@@ -2101,7 +2342,8 @@ function fecharPainelAdmin() {
 }
 
 document.getElementById("overlay-admin").addEventListener("click", function(e) {
-  if (e.target === this && !document.getElementById("overlay-admin-editar").classList.contains("open")) {
+  if (e.target === this && !document.getElementById("overlay-admin-editar").classList.contains("open")
+      && !document.getElementById("overlay-admin-bloquear").classList.contains("open")) {
     fecharPainelAdmin();
   }
 });
@@ -2109,6 +2351,8 @@ document.getElementById("overlay-admin").addEventListener("click", function(e) {
 function _adminSlotCellHtml(ln, col, val, mobile) {
   const valUp = val.toUpperCase();
   const h = HORARIOS[ln] || ["?","?"];
+  const blkBadge = temBloqueioParcial(val) ? fmtBloqueioHtml(val) : "";
+  const btnBlk = `<button class="admin-action-blk" onclick="abrirModalAdminBloquear(${ln},${col})" title="Bloquear">🔒</button>`;
 
   if (ePassadoHoje(col, ln)) {
     if (mobile) return `
@@ -2119,29 +2363,11 @@ function _adminSlotCellHtml(ln, col, val, mobile) {
     return `<td class="atd atd-slot atd-passado">🕐 Passado</td>`;
   }
 
-  if (!val || valUp === "LIVRE" || val === "") {
-    if (mobile) return `
-      <div class="admin-slot-row admin-slot-livre">
-        <div class="admin-slot-hora">${h[0]}<br>–<br>${h[1]}</div>
-        <div class="admin-slot-content"><span class="admin-slot-badge">Livre</span></div>
-        <div class="admin-slot-actions">
-          <button class="admin-action-add" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
-          <button class="admin-action-blk" onclick="adminSetCell(${ln},${col},'BLOQUEADO')" title="Bloquear">🔒</button>
-        </div>
-      </div>`;
-    return `<td class="atd atd-slot atd-livre">
-      <div class="admin-slot-actions">
-        <button class="admin-action-add" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
-        <button class="admin-action-blk" onclick="adminSetCell(${ln},${col},'BLOQUEADO')" title="Bloquear">🔒</button>
-      </div>
-    </td>`;
-  }
-
-  if (valUp === "BLOQUEADO") {
+  if (celulaBloqueioTotal(val)) {
     if (mobile) return `
       <div class="admin-slot-row admin-slot-bloqueado">
         <div class="admin-slot-hora">${h[0]}<br>–<br>${h[1]}</div>
-        <div class="admin-slot-content"><span class="admin-slot-badge">🔒 Bloqueado</span></div>
+        <div class="admin-slot-content"><span class="admin-slot-badge">🔒 Horário inteiro</span></div>
         <div class="admin-slot-actions">
           <button class="admin-action-unblk" onclick="adminSetCell(${ln},${col},'')" title="Desbloquear">✕</button>
         </div>
@@ -2154,25 +2380,46 @@ function _adminSlotCellHtml(ln, col, val, mobile) {
     </td>`;
   }
 
+  if (!val || valUp === "LIVRE" || val === "") {
+    if (mobile) return `
+      <div class="admin-slot-row admin-slot-livre">
+        <div class="admin-slot-hora">${h[0]}<br>–<br>${h[1]}</div>
+        <div class="admin-slot-content"><span class="admin-slot-badge">Livre</span></div>
+        <div class="admin-slot-actions">
+          <button class="admin-action-add" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
+          ${btnBlk}
+        </div>
+      </div>`;
+    return `<td class="atd atd-slot atd-livre">
+      <div class="admin-slot-actions">
+        <button class="admin-action-add" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
+        ${btnBlk}
+      </div>
+    </td>`;
+  }
+
   const reservas = listarReservas(val);
   const rsvHtml = reservas.map((r, i) => `
     <div class="admin-rsv-item">
       <button class="admin-rsv-nome" onclick="abrirModalAdminEditar(${ln},${col},${i})" title="Editar">${r.nome}</button>
       <button class="admin-rsv-del" onclick="adminDeletarRsv(${ln},${col},${i})" title="Remover">✕</button>
     </div>`).join("");
+  const contentHtml = `${blkBadge}${rsvHtml}`;
 
   if (mobile) return `
     <div class="admin-slot-row admin-slot-ocupado">
       <div class="admin-slot-hora">${h[0]}<br>–<br>${h[1]}</div>
-      <div class="admin-slot-content">${rsvHtml}</div>
+      <div class="admin-slot-content">${contentHtml || '<span class="admin-slot-badge">Parcial</span>'}</div>
       <div class="admin-slot-actions">
         <button class="admin-action-add admin-action-add-extra" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
+        ${btnBlk}
       </div>
     </div>`;
   return `<td class="atd atd-slot atd-ocupado">
-    ${rsvHtml}
+    ${contentHtml}
     <div class="admin-slot-actions" style="margin-top:4px">
       <button class="admin-action-add admin-action-add-extra" onclick="abrirModalAdminEditar(${ln},${col},-1)" title="Adicionar">+</button>
+      ${btnBlk}
     </div>
   </td>`;
 }
@@ -2335,7 +2582,7 @@ function renderAdminHorariosBtns(col, dados) {
     const val = celVal.trim().toUpperCase().replace(/\s+/g, " ");
     const passado = ePassadoHoje(col, ln);
     const intervalo = LINHAS_INTERVALO.has(ln);
-    const bloqueado = val === "BLOQUEADO" && !intervalo;
+    const bloqueado = celulaBloqueioTotal(celVal) && !intervalo;
     const temRes = celVal.includes("|");
 
     const btn = document.createElement("button");

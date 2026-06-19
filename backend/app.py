@@ -131,6 +131,21 @@ def garantir_marca_agua_planilha():
         print(f"[marca] erro ao gravar: {e}")
 
 
+def celula_tem_reserva(cel):
+    """True se a célula tem reserva de professor (ignora BLOQUEIO parcial e BLOQUEADO)."""
+    if not cel or "|" not in str(cel):
+        return False
+    if str(cel).strip().upper() == "BLOQUEADO":
+        return False
+    for bloco in str(cel).split("§"):
+        partes = bloco.split("|")
+        if len(partes) < 2:
+            continue
+        if partes[0].strip().upper() != "BLOQUEIO":
+            return True
+    return False
+
+
 def agenda_tem_reservas(valores):
     for i, row in enumerate(valores or []):
         if i == 0:
@@ -138,25 +153,17 @@ def agenda_tem_reservas(valores):
         for j, cell in enumerate(row):
             if j == 0:
                 continue
-            if cell and "|" in str(cell):
-                v = str(cell).strip().upper()
-                if v and v not in ("LIVRE", "BLOQUEADO"):
-                    return True
+            if celula_tem_reserva(cell):
+                return True
     return False
 
 
 def limpar_celulas_agenda():
-    """Limpa agendamentos B2:F15 (preserva intervalos e BLOQUEADO manual)."""
+    """Limpa agendamentos B2:F15 (preserva só linhas de intervalo)."""
     for ln in range(2, 16):
         if ln in LINHAS_INTERVALO:
             continue
         for col in range(2, 7):
-            try:
-                v = (sheet.cell(ln, col).value or "").strip().upper()
-                if v == "BLOQUEADO":
-                    continue
-            except Exception:
-                pass
             update_cell(ln, col, "")
 
 
@@ -425,6 +432,7 @@ def promover_espera():
             cel_up = (cel_atual or "").strip().upper()
             if cel_up == "BLOQUEADO":
                 continue
+            # BLOQUEIO parcial: promove só se couber (calcular_uso já conta bloqueio)
 
             uso = calcular_uso_celula(cel_atual)
             pedido = equip_str_para_dict(equip)
