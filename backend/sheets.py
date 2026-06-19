@@ -53,8 +53,6 @@ SHEET_ID = "1uixhu6rN03HrMy-1ECf2U-Gr5bpKkbbiToiHGMOglk0"
 
 sheet = client.open_by_key(SHEET_ID).sheet1
 
-print("TESTE:", client.list_spreadsheet_files())
-
 
 # =========================
 # 📌 FUNÇÕES

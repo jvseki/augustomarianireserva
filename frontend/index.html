@@ -21,7 +21,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=21').then(reg => {
+        navigator.serviceWorker.register('/sw.js?v=22').then(reg => {
           swRegistration = reg;
 
           // Já tem um SW esperando (update chegou antes do load)
@@ -73,8 +73,8 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="stylesheet" href="style.css?v=deploy-v21-bloqueio">
-  <!-- app-version: 2026-06-11-v21-bloqueio-equip -->
+  <link rel="stylesheet" href="style.css?v=deploy-v22-fix">
+  <!-- app-version: 2026-06-19-v22-fix-login -->
   <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
@@ -733,19 +733,21 @@ async function resetarPassadosHoje(dados) {
   const hoje = diaSem();
   const col  = hoje+1;
   if (col<2||col>6) return;
+  const tarefas = [];
   for (const [ls,[,fim]] of Object.entries(HORARIOS)) {
     const ln = parseInt(ls);
     if (agora()<toMin(fim)) continue;
     const ld = dados[ln-1]; if(!ld) continue;
     const v = (ld[col-1]||"").trim();
-    // Limpa tudo no horário passado: reservas, BLOQUEADO e BLOQUEIO parcial
     if (v) {
-      try {
-        await fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:ln,coluna:col,valor:""})});
-        ld[col-1] = "";
-      } catch(e){}
+      tarefas.push(
+        fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:ln,coluna:col,valor:""})},8000)
+          .then(() => { ld[col-1] = ""; })
+          .catch(() => {})
+      );
     }
   }
+  if (tarefas.length) await Promise.allSettled(tarefas);
 }
 
 function fetchComTimeout(url,opcoes,timeoutMs=10000) {
@@ -2181,8 +2183,6 @@ let adminEditLinha = null;
 let adminEditColuna = null;
 let adminEditReservaIdx = null; // -1 = nova reserva, >= 0 = editar existente
 let adminEditEquipState = resetEquip();
-let adminHorariosSelecionados = [];
-
 let adminHorariosSelecionados = [];
 
 // Bloqueio parcial / total

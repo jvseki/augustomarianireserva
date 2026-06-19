@@ -10,8 +10,9 @@ CORS(app)
 # Linhas de intervalo na planilha (não limpar)
 LINHAS_INTERVALO = {5, 12}
 
+# Conexão Sheets na importação (sem listar todas as planilhas — evita timeout no Render)
 try:
-    print("📊 Planilhas detectadas:", client.list_spreadsheet_files())
+    print("📊 Google Sheets conectado.")
 except Exception as e:
     print("❌ Erro ao conectar Sheets:", e)
 
