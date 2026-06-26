@@ -21,7 +21,7 @@
 
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js?v=22').then(reg => {
+        navigator.serviceWorker.register('/sw.js?v=23').then(reg => {
           swRegistration = reg;
 
           // Já tem um SW esperando (update chegou antes do load)
@@ -73,8 +73,8 @@
   </script>
   <link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=DM+Mono:wght@500;600&display=swap" rel="stylesheet">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <link rel="stylesheet" href="style.css?v=deploy-v22-fix">
-  <!-- app-version: 2026-06-19-v22-fix-login -->
+  <link rel="stylesheet" href="style.css?v=deploy-v23-mobile">
+  <!-- app-version: 2026-06-26-v23-mobile-agendamento -->
   <!-- © JVSEKI — João Victor Seki Mantovani -->
 </head>
 <body>
@@ -861,6 +861,15 @@ function montarValorComBloqueio(valorAtual, equipStr, modoTotal) {
   return resto ? `${bloco} § ${resto}` : bloco;
 }
 
+function montarValorComReserva(valorAtual, novaReserva) {
+  valorAtual = celulaComoTexto(valorAtual).trim();
+  const vUp = valorAtual.toUpperCase();
+  if (!valorAtual || vUp === "" || vUp === "LIVRE" || vUp === "BLOQUEADO") {
+    return novaReserva;
+  }
+  return `${valorAtual} § ${novaReserva}`;
+}
+
 function fmtBloqueioBadges(valor) {
   const str = extrairStrBloqueio(valor);
   if (!str) return "";
@@ -1379,7 +1388,9 @@ function abrirModalDia(coluna,diaNome,dados,linhaPreSel=null) {
     if (celVal.includes("|")) {
       const reservas=listarReservas(celVal);
       const nomes=reservas.map(r=>r.nome).join(", ");
-      subtitulo="⚠️ Já reservado por: "+nomes+" — escolha o que sobrou";
+      subtitulo=nomes
+        ? "⚠️ Já reservado por: "+nomes+" — escolha o que sobrou"
+        : "⚠️ Há equipamentos bloqueados neste horário — escolha o que sobrou";
     }
   }
 
@@ -1659,9 +1670,7 @@ async function confirmarAcao() {
     try{
       const ld=dadosGlobais[ln-1];
       const valorAtual=ld?(ld[modalDiaColuna-1]||"").trim():"";
-      const vUp=valorAtual.toUpperCase();
-      const valorFinal=(!valorAtual||vUp===""||vUp==="BLOQUEADO")
-        ?novaReserva:`${valorAtual} § ${novaReserva}`;
+      const valorFinal=montarValorComReserva(valorAtual,novaReserva);
       const res=await fetchComTimeout(`${API}/editar`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({linha:ln,coluna:modalDiaColuna,valor:valorFinal})},12000);
       if(!res.ok) throw new Error();
       salvos++;
@@ -2947,10 +2956,7 @@ async function salvarAdminCell() {
     try {
       const ld = dadosGlobais[ln - 1];
       const valorAtual = ld ? (ld[adminEditColuna - 1] || "").trim() : "";
-      const vUp = valorAtual.toUpperCase();
-      const valorFinal = (!valorAtual || vUp === "" || vUp === "LIVRE" || vUp === "BLOQUEADO")
-        ? novaReserva
-        : `${valorAtual} § ${novaReserva}`;
+      const valorFinal = montarValorComReserva(valorAtual, novaReserva);
       const res = await adminChamarEditar(ln, adminEditColuna, valorFinal);
       if (!res.ok) throw new Error();
       salvos++;
